@@ -1,3 +1,4 @@
+```tsx
 "use client";
 
 import React, { useMemo, useState } from "react";
@@ -153,14 +154,12 @@ const CW_RISK_ASSESSMENT_MAPPING: SlideMapping = {
     "[1]": { type: "cell", ref: "G2" },
     "[2]": { type: "month_year", ref: "B2", format: "Mon YYYY" },
   },
-
   3: {
     "[1]": { type: "cell", ref: "K2" },
     "[2]": { type: "cell", ref: "K3" },
     "[3]": { type: "cell", ref: "K4" },
     "[4]": { type: "cell", ref: "K5" },
   },
-
   4: {
     "[A1]": { type: "cell", ref: "H2" },
     "[B1]": { type: "cell", ref: "H3" },
@@ -182,7 +181,6 @@ const CW_RISK_ASSESSMENT_MAPPING: SlideMapping = {
     "[C4]": { type: "cell", ref: "K4" },
     "[D4]": { type: "cell", ref: "K5" },
   },
-
   5: {
     "[A1]": { type: "cell", ref: "L2" },
     "[B1]": { type: "cell", ref: "L3" },
@@ -240,13 +238,24 @@ const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
   },
 ];
 
+type CwDashboard = {
+  table1: string[][];
+  table2: string[][];
+  pieLabels: string[];
+  pieValues: number[];
+  pieTitle: string;
+};
+
 export default function Page() {
   const [slideType, setSlideType] = useState<SlideTypeId>(SLIDE_DEFS[0].id);
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [excelFile, setExcelFile] = useState<File | null>(null);
 
-  // NEW: Raw Data file (CW only)
+  // NEW: CW Raw Data xlsx
   const [rawDataFile, setRawDataFile] = useState<File | null>(null);
+
+  // NEW: CW outputs to render on page
+  const [cwDash, setCwDash] = useState<CwDashboard | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -259,7 +268,6 @@ export default function Page() {
     [slideType]
   );
 
-  // UPDATED: CW requires rawDataFile
   const canSubmit = useMemo(() => {
     if (!(slideType && templateFile && excelFile) || isSubmitting) return false;
     if (slideType === "cw_risk_assessment") return Boolean(rawDataFile);
@@ -269,10 +277,11 @@ export default function Page() {
   function handleReset() {
     setError(null);
     setSuccessMsg(null);
+    setCwDash(null);
     setSlideType(SLIDE_DEFS[0].id);
     setTemplateFile(null);
     setExcelFile(null);
-    setRawDataFile(null); // NEW
+    setRawDataFile(null);
     setIsSubmitting(false);
     setResetKey((k) => k + 1);
   }
@@ -280,6 +289,7 @@ export default function Page() {
   async function handleGenerate() {
     setError(null);
     setSuccessMsg(null);
+    setCwDash(null);
 
     if (!templateFile || !excelFile) {
       setError("Upload both a PPTX template and an Excel file.");
@@ -340,10 +350,7 @@ export default function Page() {
     try {
       // ---- Read Excel (Risk Assessment) in-browser ----
       const excelArrayBuf = await excelFile.arrayBuffer();
-      const workbook = XLSX.read(excelArrayBuf, {
-        type: "array",
-        cellDates: true,
-      });
+      const workbook = XLSX.read(excelArrayBuf, { type: "array", cellDates: true });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
 
@@ -366,16 +373,14 @@ export default function Page() {
         const cell = getCellObj(ref);
         if (!cell || cell.v == null) return "N/A";
 
-        let month: number | null = null; // 1-12
+        let month: number | null = null;
         let year: number | null = null;
 
-        // 1) Date instance (because cellDates:true)
         if (cell.v instanceof Date && !isNaN(cell.v.getTime())) {
           month = cell.v.getMonth() + 1;
           year = cell.v.getFullYear();
         }
 
-        // 2) Excel serial number date
         if ((month == null || year == null) && typeof cell.v === "number") {
           const parsed = XLSX.SSF.parse_date_code(cell.v);
           if (parsed && parsed.m && parsed.y) {
@@ -384,7 +389,6 @@ export default function Page() {
           }
         }
 
-        // 3) String like M/D/YY HH:MM:SS (or M/D/YYYY ...)
         if (month == null || year == null) {
           const s = String(cell.w ?? cell.v).trim();
           const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
@@ -397,42 +401,14 @@ export default function Page() {
 
         if (!month || !year) return "N/A";
 
-        const monShort = [
-          "Jan",
-          "Feb",
-          "Mar",
-          "Apr",
-          "May",
-          "Jun",
-          "Jul",
-          "Aug",
-          "Sep",
-          "Oct",
-          "Nov",
-          "Dec",
-        ];
-        const monLong = [
-          "January",
-          "February",
-          "March",
-          "April",
-          "May",
-          "June",
-          "July",
-          "August",
-          "September",
-          "October",
-          "November",
-          "December",
-        ];
+        const monShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const monLong = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
         if (format === "MM/YYYY") {
           const mm = String(month).padStart(2, "0");
           return `${mm}/${year}`;
         }
-        if (format === "MMMM YYYY") {
-          return `${monLong[month - 1]} ${year}`;
-        }
+        if (format === "MMMM YYYY") return `${monLong[month - 1]} ${year}`;
         return `${monShort[month - 1]} ${year}`;
       };
 
@@ -444,7 +420,6 @@ export default function Page() {
           return formatMonthYear(spec.ref, spec.format ?? "Mon YYYY");
         }
 
-        // join
         const parts = spec.refs
           .map(getCell)
           .map((v) => String(v ?? "").trim())
@@ -453,11 +428,53 @@ export default function Page() {
         return parts.length ? parts.join(spec.joinWith) : "N/A";
       };
 
+      // ---- If CW: compute dashboard outputs for the page ----
+      if (slideType === "cw_risk_assessment" && rawDataFile) {
+        const rawBuf = await rawDataFile.arrayBuffer();
+        const rawWb = XLSX.read(rawBuf, { type: "array", cellDates: true });
+        const rawSheetName = rawWb.SheetNames[0];
+        const rawSheet = rawWb.Sheets[rawSheetName];
+
+        const rows = sheetToRawRows(rawSheet);
+
+        const byEmp = groupSum(rows, "employeeType").sort((a, b) => b.value - a.value);
+        const total = byEmp.reduce((s, x) => s + x.value, 0) || 1;
+
+        const table1: string[][] = [
+          ["Employee Type", "Total #", "% of Total"],
+          ...byEmp.map((x) => [
+            x.key,
+            String(Math.round(x.value)),
+            `${((x.value / total) * 100).toFixed(1)}%`,
+          ]),
+        ];
+
+        const pv = pivot(rows);
+        const table2: string[][] = [
+          ["Employee Type", ...pv.colKeys],
+          ...pv.rowKeys.map((rk) => {
+            const rowMap = pv.data.get(rk)!;
+            return [rk, ...pv.colKeys.map((ck) => String(Math.round(rowMap.get(ck) ?? 0)))];
+          }),
+        ];
+
+        const byF = groupSum(rows, "groupF")
+          .sort((a, b) => b.value - a.value)
+          .slice(0, 12);
+
+        setCwDash({
+          table1,
+          table2,
+          pieTitle: "Distribution by Group (Column F)",
+          pieLabels: byF.map((x) => x.key),
+          pieValues: byF.map((x) => x.value),
+        });
+      }
+
       // ---- Read PPTX (zip) in-browser ----
       const pptxArrayBuf = await templateFile.arrayBuffer();
       const zip = await JSZip.loadAsync(pptxArrayBuf);
 
-      // 1) Existing placeholder replacement (unchanged)
       for (const [slideNumStr, placeholders] of Object.entries(mapping)) {
         const slideNum = Number(slideNumStr);
         const slidePath = `ppt/slides/slide${slideNum}.xml`;
@@ -472,61 +489,6 @@ export default function Page() {
         }
 
         zip.file(slidePath, xml);
-      }
-
-      // 2) NEW: CW slide 2 dashboard (editable tables + pie image)
-      if (slideType === "cw_risk_assessment" && rawDataFile) {
-        const rawBuf = await rawDataFile.arrayBuffer();
-        const rawWb = XLSX.read(rawBuf, { type: "array", cellDates: true });
-        const rawSheetName = rawWb.SheetNames[0];
-        const rawSheet = rawWb.Sheets[rawSheetName];
-
-        const rawRows = sheetToRawRows(rawSheet);
-
-        // Table 1: Employee Type | Total # | % of Total
-        const byEmp = groupSum(rawRows, "employeeType").sort(
-          (a, b) => b.value - a.value
-        );
-        const total = byEmp.reduce((s, x) => s + x.value, 0) || 1;
-
-        const table1: string[][] = [
-          ["Employee Type", "Total #", "% of Total"],
-          ...byEmp.map((x) => [
-            x.key,
-            String(Math.round(x.value)),
-            `${((x.value / total) * 100).toFixed(1)}%`,
-          ]),
-        ];
-
-        // Table 2: Pivot (Employee Type x Group J)
-        const pv = pivot(rawRows);
-        const table2: string[][] = [
-          ["Employee Type", ...pv.colKeys],
-          ...pv.rowKeys.map((rk) => {
-            const rowMap = pv.data.get(rk)!;
-            return [
-              rk,
-              ...pv.colKeys.map((ck) =>
-                String(Math.round(rowMap.get(ck) ?? 0))
-              ),
-            ];
-          }),
-        ];
-
-        await fillCwTablesOnSlide2(zip, table1, table2);
-
-        // Pie: Group F distribution (top 12)
-        const byF = groupSum(rawRows, "groupF")
-          .sort((a, b) => b.value - a.value)
-          .slice(0, 12)
-          .map((x) => ({ label: x.key, value: x.value }));
-
-        const pieCanvas = drawPieChartPng(
-          "Distribution by Group (Column F)",
-          byF
-        );
-        const pieBytes = await canvasToPngBytes(pieCanvas);
-        await replaceSlide2PieByAltText(zip, pieBytes);
       }
 
       const outArrayBuffer = await zip.generateAsync({ type: "arraybuffer" });
@@ -639,7 +601,6 @@ export default function Page() {
             </button>
           </div>
 
-          {/* NEW: Raw Data upload (only for CW Risk Assessment) */}
           {slideType === "cw_risk_assessment" && (
             <div style={styles.section}>
               <label style={styles.label}>Raw Data (.xlsx)</label>
@@ -673,7 +634,7 @@ export default function Page() {
                 {rawDataFile ? rawDataFile.name : "Choose Raw Data (.xlsx)"}
               </button>
               <div style={styles.helperText}>
-                Used to generate Slide 2 (two editable tables + pie chart image).
+                Generates Table 1, Table 2, and a Pie Chart below for copy/paste.
               </div>
             </div>
           )}
@@ -710,27 +671,134 @@ export default function Page() {
         <div style={styles.note}>
           This version runs fully in the browser (GitHub Pages-friendly).
         </div>
+
+        {/* NEW: CW outputs */}
+        {slideType === "cw_risk_assessment" && cwDash && (
+          <div style={{ marginTop: 24 }}>
+            <h2 style={{ margin: "0 0 12px", fontSize: 18 }}>CW Outputs (copy/paste)</h2>
+
+            <div style={{ display: "grid", gap: 16 }}>
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                  Table 1: Employee Type Summary
+                </div>
+                <HtmlTable grid={cwDash.table1} />
+              </div>
+
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                  Table 2: Pivot (Employee Type × Group J)
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <HtmlTable grid={cwDash.table2} />
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>Pie Chart</div>
+                <PieCanvas dash={cwDash} />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 12, color: "#b8b8c7", fontSize: 13, lineHeight: 1.35 }}>
+              Tip: copy a table and paste into PowerPoint. For the pie, right-click the
+              chart and copy/save the image.
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
 }
 
-/**
- * -----------------------------
- * CW Slide 2 Dashboard Helpers
- * -----------------------------
- * Template requirements (Slide 2):
- * - Table shape Alt Text Description: CW_TABLE1
- * - Table shape Alt Text Description: CW_TABLE2
- * - Picture shape Alt Text Description: CW_PIE
- */
+function HtmlTable({ grid }: { grid: string[][] }) {
+  if (!grid?.length) return null;
+  const [header, ...body] = grid;
 
-type RawRow = {
-  count: number;
-  employeeType: string;
-  groupF: string;
-  groupJ: string;
-};
+  return (
+    <table
+      style={{
+        width: "100%",
+        borderCollapse: "collapse",
+        background: "#0e0e16",
+        border: "1px solid #2b2b3f",
+        borderRadius: 12,
+        overflow: "hidden",
+      }}
+    >
+      <thead>
+        <tr>
+          {header.map((h, i) => (
+            <th
+              key={i}
+              style={{
+                textAlign: "left",
+                padding: "10px 12px",
+                borderBottom: "1px solid #2b2b3f",
+                background: "#12121a",
+                fontWeight: 700,
+                fontSize: 13,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {h}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {body.map((row, r) => (
+          <tr key={r}>
+            {row.map((cell, c) => (
+              <td
+                key={c}
+                style={{
+                  padding: "10px 12px",
+                  borderBottom: "1px solid #2b2b3f",
+                  fontSize: 13,
+                  color: "#f4f4f5",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {cell}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function PieCanvas({
+  dash,
+}: {
+  dash: { pieTitle: string; pieLabels: string[]; pieValues: number[] };
+}) {
+  const ref = React.useRef<HTMLCanvasElement | null>(null);
+
+  React.useEffect(() => {
+    if (!ref.current) return;
+    renderPieChartToCanvas(ref.current, dash.pieTitle, dash.pieLabels, dash.pieValues);
+  }, [dash]);
+
+  return (
+    <canvas
+      ref={ref}
+      width={900}
+      height={520}
+      style={{
+        width: "100%",
+        maxWidth: 900,
+        borderRadius: 12,
+        border: "1px solid #2b2b3f",
+        background: "#fff",
+      }}
+    />
+  );
+}
+
+type RawRow = { count: number; employeeType: string; groupF: string; groupJ: string };
 
 function sheetToRawRows(ws: XLSX.WorkSheet): RawRow[] {
   const aoa = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: true });
@@ -742,7 +810,6 @@ function sheetToRawRows(ws: XLSX.WorkSheet): RawRow[] {
       const employeeType = String(r?.[2] ?? "").trim(); // C
       const groupF = String(r?.[5] ?? "").trim(); // F
       const groupJ = String(r?.[9] ?? "").trim(); // J
-
       return {
         count: Number.isFinite(count) ? count : 0,
         employeeType: employeeType || "N/A",
@@ -750,7 +817,10 @@ function sheetToRawRows(ws: XLSX.WorkSheet): RawRow[] {
         groupJ: groupJ || "N/A",
       };
     })
-    .filter((r) => r.employeeType !== "N/A" || r.groupF !== "N/A" || r.groupJ !== "N/A");
+    .filter(
+      (r) =>
+        !(r.employeeType === "N/A" && r.groupF === "N/A" && r.groupJ === "N/A" && r.count === 0)
+    );
 }
 
 function groupSum(rows: RawRow[], key: keyof RawRow) {
@@ -777,154 +847,58 @@ function pivot(rows: RawRow[]) {
   return { rowKeys, colKeys, data };
 }
 
-function setPptTableText(tblEl: Element, grid: string[][]) {
-  const rows = Array.from(tblEl.getElementsByTagName("a:tr"));
-  for (let r = 0; r < rows.length && r < grid.length; r++) {
-    const cells = Array.from(rows[r].getElementsByTagName("a:tc"));
-    for (let c = 0; c < cells.length && c < grid[r].length; c++) {
-      const texts = Array.from(cells[c].getElementsByTagName("a:t"));
-      if (!texts.length) continue;
+function renderPieChartToCanvas(
+  canvas: HTMLCanvasElement,
+  title: string,
+  labels: string[],
+  values: number[]
+) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
 
-      texts[0].textContent = grid[r][c] ?? "";
-      for (let k = 1; k < texts.length; k++) texts[k].textContent = "";
-    }
-  }
-}
+  const width = canvas.width;
+  const height = canvas.height;
 
-async function fillCwTablesOnSlide2(zip: JSZip, table1: string[][], table2: string[][]) {
-  const slidePath = "ppt/slides/slide2.xml";
-  const slideFile = zip.file(slidePath);
-  if (!slideFile) return;
-
-  const xml = await slideFile.async("string");
-  const doc = new DOMParser().parseFromString(xml, "application/xml");
-  if (doc.getElementsByTagName("parsererror").length) return;
-
-  const frames = Array.from(doc.getElementsByTagName("p:graphicFrame"));
-  for (const frame of frames) {
-    const cNvPr = frame.getElementsByTagName("p:cNvPr")?.[0];
-    const descr = cNvPr?.getAttribute("descr")?.trim();
-    const tbl = frame.getElementsByTagName("a:tbl")?.[0];
-    if (!tbl || !descr) continue;
-
-    if (descr === "CW_TABLE1") setPptTableText(tbl, table1);
-    if (descr === "CW_TABLE2") setPptTableText(tbl, table2);
-  }
-
-  zip.file(slidePath, new XMLSerializer().serializeToString(doc));
-}
-
-async function canvasToPngBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
-  const blob: Blob = await new Promise((resolve) =>
-    canvas.toBlob((b) => resolve(b!), "image/png")
-  );
-  const ab = await blob.arrayBuffer();
-  return new Uint8Array(ab);
-}
-
-function drawPieChartPng(title: string, items: Array<{ label: string; value: number }>) {
-  const width = 1200;
-  const height = 700;
-  const c = document.createElement("canvas");
-  c.width = width;
-  c.height = height;
-
-  const ctx = c.getContext("2d")!;
+  ctx.clearRect(0, 0, width, height);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
 
   ctx.fillStyle = "#111827";
-  ctx.font = "bold 22px Arial";
-  ctx.fillText(title, 24, 48);
+  ctx.font = "bold 18px Arial";
+  ctx.fillText(title, 16, 28);
 
-  const total = items.reduce((s, x) => s + (x.value ?? 0), 0) || 1;
-  const cx = 360,
-    cy = 380,
-    r = 220;
+  const total = values.reduce((s, v) => s + v, 0) || 1;
+
+  const cx = 220;
+  const cy = 260;
+  const r = 140;
 
   const palette = ["#2563eb", "#16a34a", "#f59e0b", "#dc2626", "#7c3aed", "#0891b2", "#111827"];
 
   let angle = -Math.PI / 2;
-  items.forEach((it, idx) => {
-    const slice = (it.value / total) * Math.PI * 2;
+  values.forEach((v, i) => {
+    const slice = (v / total) * Math.PI * 2;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, r, angle, angle + slice);
     ctx.closePath();
-    ctx.fillStyle = palette[idx % palette.length];
+    ctx.fillStyle = palette[i % palette.length];
     ctx.fill();
     angle += slice;
   });
 
-  // legend
-  ctx.font = "16px Arial";
-  let y = 140;
-  items.slice(0, 12).forEach((it, idx) => {
-    const pct = ((it.value / total) * 100).toFixed(1);
-    ctx.fillStyle = palette[idx % palette.length];
-    ctx.fillRect(720, y - 14, 18, 18);
+  // Legend
+  ctx.font = "14px Arial";
+  let y = 70;
+  for (let i = 0; i < Math.min(labels.length, 12); i++) {
+    const pct = ((values[i] / total) * 100).toFixed(1);
+    ctx.fillStyle = palette[i % palette.length];
+    ctx.fillRect(420, y - 12, 14, 14);
     ctx.fillStyle = "#111827";
-    ctx.fillText(`${it.label} — ${pct}% (${Math.round(it.value)})`, 748, y);
-    y += 32;
-  });
-
-  return c;
-}
-
-async function replaceSlide2PieByAltText(zip: JSZip, pngBytes: Uint8Array) {
-  const slidePath = "ppt/slides/slide2.xml";
-  const relsPath = "ppt/slides/_rels/slide2.xml.rels";
-
-  const slideFile = zip.file(slidePath);
-  const relsFile = zip.file(relsPath);
-  if (!slideFile || !relsFile) return;
-
-  const slideXml = await slideFile.async("string");
-  const relsXml = await relsFile.async("string");
-
-  const slideDoc = new DOMParser().parseFromString(slideXml, "application/xml");
-  const relsDoc = new DOMParser().parseFromString(relsXml, "application/xml");
-
-  const relsById = new Map<string, string>();
-  Array.from(relsDoc.getElementsByTagName("Relationship")).forEach((r) => {
-    const id = r.getAttribute("Id");
-    const target = r.getAttribute("Target");
-    if (id && target) relsById.set(id, target);
-  });
-
-  const pics = Array.from(slideDoc.getElementsByTagName("p:pic"));
-  for (const pic of pics) {
-    const cNvPr = pic.getElementsByTagName("p:cNvPr")?.[0];
-    const descr = cNvPr?.getAttribute("descr")?.trim();
-    if (descr !== "CW_PIE") continue;
-
-    const blip = pic.getElementsByTagName("a:blip")?.[0];
-    const rEmbed =
-      blip?.getAttribute("r:embed") ||
-      blip?.getAttributeNS(
-        "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
-        "embed"
-      );
-
-    if (!rEmbed) continue;
-
-    const target = relsById.get(rEmbed);
-    if (!target) continue;
-
-    const mediaPath = "ppt/" + target.replace(/^\.\.\//, "");
-    if (!zip.file(mediaPath)) continue;
-
-    zip.file(mediaPath, pngBytes);
+    ctx.fillText(`${labels[i]} — ${pct}% (${Math.round(values[i])})`, 440, y);
+    y += 24;
   }
-
-  zip.file(slidePath, new XMLSerializer().serializeToString(slideDoc));
 }
-
-/**
- * -----------------------------
- * Existing helpers
- * -----------------------------
- */
 
 function escapeXml(s: string) {
   return s
@@ -1029,3 +1003,4 @@ const styles: Record<string, React.CSSProperties> = {
   },
   note: { marginTop: 16, fontSize: 14, color: "#b8b8c7", lineHeight: 1.4 },
 };
+```
