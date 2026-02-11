@@ -951,7 +951,6 @@ function sheetToRawRows(ws: XLSX.WorkSheet): RawRow[] {
       const groupF = String(r?.[5] ?? "").trim(); // F
       const workLocationCountryDesc = String(r?.[8] ?? "").trim(); // I
       const rawGroupJDesc = String(r?.[9] ?? "").trim(); // J (Business Lvl 1 Desc)
-      const rawGroupJDesc = String(r?.[9] ?? "").trim();
       const groupJ =
         BUSINESS_LVL1_DESC_TO_CODE_NORM[norm(rawGroupJDesc)] ??
         rawGroupJDesc;
