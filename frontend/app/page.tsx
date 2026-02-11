@@ -252,6 +252,7 @@ export default function Page() {
 
   const [rawDataFile, setRawDataFile] = useState<File | null>(null);
   const [cwDash, setCwDash] = useState<CwDashboard | null>(null);
+  const [cwCountry, setCwCountry] = useState<string>("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -278,6 +279,7 @@ export default function Page() {
     setTemplateFile(null);
     setExcelFile(null);
     setRawDataFile(null);
+    setCwCountry("");
     setIsSubmitting(false);
     setResetKey((k) => k + 1);
   }
@@ -296,6 +298,14 @@ export default function Page() {
       setError("For CW Risk Assessment, upload the Raw Data (.xlsx) file too.");
       return;
     }
+    
+    if (slideType === "cw_risk_assessment") {
+      const c = cwCountry.trim();
+      if (!c) {
+        setError('For CW Risk Assessment, enter a country to filter by (Column I: "Work Location Country Desc").');
+        return;
+      }
+    } 
 
     if (!templateFile.name.toLowerCase().endsWith(".pptx")) {
       setError("Template must be a .pptx file.");
@@ -460,7 +470,25 @@ export default function Page() {
         const rawSheetName = rawWb.SheetNames[0];
         const rawSheet = rawWb.Sheets[rawSheetName];
 
-        const rows = sheetToRawRows(rawSheet);
+        const rowsAll = sheetToRawRows(rawSheet);
+
+        const targetCountry = cwCountry.trim().toLowerCase();
+        const rows = rowsAll.filter(
+          (r) =>
+            String(r.workLocationCountryDesc ?? "")
+              .trim()
+              .toLowerCase() === targetCountry
+        );
+        
+        if (rows.length === 0) {
+          setError(
+            'No Raw Data rows matched country "' +
+              cwCountry.trim() +
+              '" in Column I (Work Location Country Desc).'
+          );
+          setIsSubmitting(false);
+          return;
+        }
 
         const byEmp = groupSum(rows, "employeeType").sort(
           (a, b) => b.value - a.value
@@ -668,6 +696,28 @@ export default function Page() {
               <div style={styles.helperText}>
                 Generates Table 1, Table 2, and a Pie Chart below for copy/paste.
               </div>
+              <div style={{ marginTop: 14 }}>
+                <label style={styles.label}>
+                  Filter country (Work Location Country Desc)
+                </label>
+                <input
+                  value={cwCountry}
+                  onChange={(e) => setCwCountry(e.target.value)}
+                  placeholder='e.g., "United States"'
+                  disabled={isSubmitting}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #2b2b3f",
+                    background: "#0e0e16",
+                    color: "#f4f4f5",
+                  }}
+                />
+                <div style={styles.helperText}>
+                  CW outputs will only include rows where Column I matches this value.
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -848,6 +898,7 @@ type RawRow = {
   employeeType: string;
   groupF: string;
   groupJ: string;
+  workLocationCountryDesc: string;
 };
 
 function sheetToRawRows(ws: XLSX.WorkSheet): RawRow[] {
@@ -859,12 +910,15 @@ function sheetToRawRows(ws: XLSX.WorkSheet): RawRow[] {
       const count = Number(r?.[1] ?? 0); // B
       const employeeType = String(r?.[2] ?? "").trim(); // C
       const groupF = String(r?.[5] ?? "").trim(); // F
+      const workLocationCountryDesc = String(r?.[8] ?? "").trim(); // I
       const groupJ = String(r?.[9] ?? "").trim(); // J
+
       return {
         count: Number.isFinite(count) ? count : 0,
         employeeType: employeeType || "N/A",
         groupF: groupF || "N/A",
         groupJ: groupJ || "N/A",
+        workLocationCountryDesc: workLocationCountryDesc || "N/A",
       };
     })
     .filter(
@@ -873,6 +927,7 @@ function sheetToRawRows(ws: XLSX.WorkSheet): RawRow[] {
           r.employeeType === "N/A" &&
           r.groupF === "N/A" &&
           r.groupJ === "N/A" &&
+          r.workLocationCountryDesc === "N/A" &&
           r.count === 0
         )
     );
