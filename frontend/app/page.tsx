@@ -916,6 +916,22 @@ const BUSINESS_LVL1_DESC_TO_CODE: Record<string, string> = {
   "Unknown": "UNK",
 };
 
+function norm(s: string) {
+  return String(s ?? "")
+    .replace(/\u00A0/g, " ")   // non-breaking space -> normal space
+    .replace(/\s+/g, " ")     // collapse multiple spaces
+    .trim()
+    .toLowerCase();
+}
+
+const BUSINESS_LVL1_DESC_TO_CODE_NORM: Record<string, string> =
+  Object.fromEntries(
+    Object.entries(BUSINESS_LVL1_DESC_TO_CODE).map(([desc, code]) => [
+      norm(desc),
+      code,
+    ])
+  );
+
 type RawRow = {
   count: number;
   employeeType: string;
@@ -935,9 +951,10 @@ function sheetToRawRows(ws: XLSX.WorkSheet): RawRow[] {
       const groupF = String(r?.[5] ?? "").trim(); // F
       const workLocationCountryDesc = String(r?.[8] ?? "").trim(); // I
       const rawGroupJDesc = String(r?.[9] ?? "").trim(); // J (Business Lvl 1 Desc)
+      const rawGroupJDesc = String(r?.[9] ?? "").trim();
       const groupJ =
-        BUSINESS_LVL1_DESC_TO_CODE[rawGroupJDesc] ??
-        rawGroupJDesc; // fallback to original if no match
+        BUSINESS_LVL1_DESC_TO_CODE_NORM[norm(rawGroupJDesc)] ??
+        rawGroupJDesc;
 
       return {
         count: Number.isFinite(count) ? count : 0,
