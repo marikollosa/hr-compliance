@@ -893,6 +893,29 @@ function PieCanvas({
   );
 }
 
+const BUSINESS_LVL1_DESC_TO_CODE: Record<string, string> = {
+  "Communications Technology Group": "CME",
+  "Global Marketing": "CMP",
+  "Networking": "EDG",
+  "HPE Stranded L2": "EGR",
+  "Enterprise Services": "ESHP",
+  "Executive Office": "EXE",
+  "WW Finance": "FIN",
+  "HPE Financial Services": "FSHP",
+  "HPE Operations": "GBO",
+  "Global IT": "GIT",
+  "Hybrid Cloud": "GLDV",
+  "HPE Go to Market": "GOM",
+  "Human Resources": "HR",
+  "OLAA": "LEGO",
+  "OTHER - Finance Only": "OTH",
+  "OTHER": "OTHS",
+  "Printing and Personal System": "PPSG",
+  "Servers": "SVRS",
+  "LEGACY-Enterprise Business-TSG": "TSG",
+  "Unknown": "UNK",
+};
+
 type RawRow = {
   count: number;
   employeeType: string;
@@ -911,7 +934,10 @@ function sheetToRawRows(ws: XLSX.WorkSheet): RawRow[] {
       const employeeType = String(r?.[2] ?? "").trim(); // C
       const groupF = String(r?.[5] ?? "").trim(); // F
       const workLocationCountryDesc = String(r?.[8] ?? "").trim(); // I
-      const groupJ = String(r?.[9] ?? "").trim(); // J
+      const rawGroupJDesc = String(r?.[9] ?? "").trim(); // J (Business Lvl 1 Desc)
+      const groupJ =
+        BUSINESS_LVL1_DESC_TO_CODE[rawGroupJDesc] ??
+        rawGroupJDesc; // fallback to original if no match
 
       return {
         count: Number.isFinite(count) ? count : 0,
