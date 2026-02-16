@@ -20,7 +20,9 @@ type CellSpec =
       type: "month_year";
       ref: string;
       format?: "Mon YYYY" | "MMMM YYYY" | "MM/YYYY";
-    };
+    }
+  // ✅ NEW: computed value from Exceptions CSV (CW only)
+  | { type: "exceptions_summary" };
 
 type SlideMapping = Record<number, Record<string, CellSpec>>;
 
@@ -158,6 +160,8 @@ const CW_RISK_ASSESSMENT_MAPPING: SlideMapping = {
     "[2]": { type: "cell", ref: "K3" },
     "[3]": { type: "cell", ref: "K4" },
     "[4]": { type: "cell", ref: "K5" },
+    // ✅ NEW: slide 3 placeholder [5] comes from Exceptions CSV summary
+    "[5]": { type: "exceptions_summary" },
   },
   4: {
     "[A1]": { type: "cell", ref: "H2" },
@@ -254,6 +258,11 @@ export default function Page() {
   const [cwDash, setCwDash] = useState<CwDashboard | null>(null);
   const [cwCountry, setCwCountry] = useState<string>("");
 
+  // ✅ NEW: Exceptions CSV + quarter/country inputs
+  const [exceptionsFile, setExceptionsFile] = useState<File | null>(null);
+  const [exceptionsQuarter, setExceptionsQuarter] = useState<string>("");
+  const [exceptionsCountry, setExceptionsCountry] = useState<string>("");
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -267,9 +276,29 @@ export default function Page() {
 
   const canSubmit = useMemo(() => {
     if (!(slideType && templateFile && excelFile) || isSubmitting) return false;
-    if (slideType === "cw_risk_assessment") return Boolean(rawDataFile);
+
+    if (slideType === "cw_risk_assessment") {
+      return Boolean(
+        rawDataFile &&
+          exceptionsFile &&
+          exceptionsQuarter.trim() &&
+          exceptionsCountry.trim() &&
+          cwCountry.trim()
+      );
+    }
+
     return true;
-  }, [slideType, templateFile, excelFile, rawDataFile, isSubmitting]);
+  }, [
+    slideType,
+    templateFile,
+    excelFile,
+    rawDataFile,
+    exceptionsFile,
+    exceptionsQuarter,
+    exceptionsCountry,
+    cwCountry,
+    isSubmitting,
+  ]);
 
   function handleReset() {
     setError(null);
@@ -280,6 +309,9 @@ export default function Page() {
     setExcelFile(null);
     setRawDataFile(null);
     setCwCountry("");
+    setExceptionsFile(null);
+    setExceptionsQuarter("");
+    setExceptionsCountry("");
     setIsSubmitting(false);
     setResetKey((k) => k + 1);
   }
@@ -294,18 +326,36 @@ export default function Page() {
       return;
     }
 
-    if (slideType === "cw_risk_assessment" && !rawDataFile) {
-      setError("For CW Risk Assessment, upload the Raw Data (.xlsx) file too.");
-      return;
-    }
-    
     if (slideType === "cw_risk_assessment") {
-      const c = cwCountry.trim();
-      if (!c) {
-        setError('For CW Risk Assessment, enter a country to filter by (Column I: "Work Location Country Desc").');
+      if (!rawDataFile) {
+        setError("For CW Risk Assessment, upload the Raw Data (.xlsx) file too.");
         return;
       }
-    } 
+      if (!exceptionsFile) {
+        setError('For CW Risk Assessment, upload the Exceptions (.csv) file too.');
+        return;
+      }
+
+      const c = cwCountry.trim();
+      if (!c) {
+        setError(
+          'For CW Risk Assessment, enter a country to filter Raw Data by (Column I: "Work Location Country Desc").'
+        );
+        return;
+      }
+
+      const q = exceptionsQuarter.trim();
+      if (!q) {
+        setError('For CW Risk Assessment, enter a quarter for Exceptions (matches Column D).');
+        return;
+      }
+
+      const ec = exceptionsCountry.trim();
+      if (!ec) {
+        setError('For CW Risk Assessment, enter a country for Exceptions (matches Column F).');
+        return;
+      }
+    }
 
     if (!templateFile.name.toLowerCase().endsWith(".pptx")) {
       setError("Template must be a .pptx file.");
@@ -334,6 +384,12 @@ export default function Page() {
         )
       ) {
         setError("Raw Data must be a .xlsx, .xlsm, or .xls file.");
+        return;
+      }
+
+      const exLower = exceptionsFile!.name.toLowerCase();
+      if (!exLower.endsWith(".csv")) {
+        setError("Exceptions must be a .csv file.");
         return;
       }
     }
@@ -447,12 +503,52 @@ export default function Page() {
         return `${monShort[month - 1]} ${year}`;
       };
 
+      // ✅ NEW: Exceptions summary (computed once, used by slide mapping)
+      let exceptionsSummary = "N/A";
+
+      if (slideType === "cw_risk_assessment" && exceptionsFile) {
+        const exText = await exceptionsFile.text();
+        const rows = parseCsvToRows(exText);
+
+        // Skip completely empty lines
+        const dataRows = rows.filter((r) => r.some((x) => String(x ?? "").trim() !== ""));
+        const hasHeader = dataRows.length > 0; // we’ll just filter everything; header won’t match typically
+
+        const qNeedle = exceptionsQuarter.trim().toLowerCase();
+        const cNeedle = exceptionsCountry.trim().toLowerCase();
+
+        // Columns: D = index 3, F = index 5, I = index 8
+        const matches = (hasHeader ? dataRows.slice(1) : dataRows).filter((r) => {
+          const q = String(r?.[3] ?? "").trim().toLowerCase();
+          const c = String(r?.[5] ?? "").trim().toLowerCase();
+          return q === qNeedle && c === cNeedle;
+        });
+
+        const num = matches.length;
+
+        const typeSet = new Set<string>();
+        for (const r of matches) {
+          const t = String(r?.[8] ?? "").trim();
+          if (t) typeSet.add(t);
+        }
+
+        const types = Array.from(typeSet);
+        types.sort((a, b) => a.localeCompare(b));
+
+        const typeList = types.length ? types.join(", ") : "None";
+        exceptionsSummary = `${num} exception requests: ${typeList}`;
+      }
+
       const resolveSpec = (spec: CellSpec): string => {
         if (spec.type === "cell") return getCell(spec.ref);
         if (spec.type === "const") return spec.value;
 
         if (spec.type === "month_year") {
           return formatMonthYear(spec.ref, spec.format ?? "Mon YYYY");
+        }
+
+        if (spec.type === "exceptions_summary") {
+          return exceptionsSummary || "N/A";
         }
 
         const parts = spec.refs
@@ -479,7 +575,7 @@ export default function Page() {
               .trim()
               .toLowerCase() === targetCountry
         );
-        
+
         if (rows.length === 0) {
           setError(
             'No Raw Data rows matched country "' +
@@ -696,6 +792,7 @@ export default function Page() {
               <div style={styles.helperText}>
                 Generates Table 1, Table 2, and a Pie Chart below for copy/paste.
               </div>
+
               <div style={{ marginTop: 14 }}>
                 <label style={styles.label}>
                   Filter country (Work Location Country Desc)
@@ -715,7 +812,93 @@ export default function Page() {
                   }}
                 />
                 <div style={styles.helperText}>
-                  CW outputs will only include rows where Column I matches this value.
+                  CW outputs will only include rows where Column I matches this
+                  value.
+                </div>
+              </div>
+
+              {/* ✅ NEW: Exceptions CSV upload + quarter/country inputs */}
+              <div style={{ marginTop: 18 }}>
+                <label style={styles.label}>Exceptions (.csv)</label>
+                <input
+                  ref={(el) => {
+                    if (el) (window as any).exceptionsInput = el;
+                  }}
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) =>
+                    setExceptionsFile(e.target.files?.[0] ?? null)
+                  }
+                  disabled={isSubmitting}
+                  style={{ display: "none" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => (window as any).exceptionsInput?.click()}
+                  disabled={isSubmitting}
+                  style={{
+                    ...styles.fileButton,
+                    background: exceptionsFile
+                      ? "rgba(34,197,94,0.12)"
+                      : "rgba(96,125,255,0.12)",
+                    border: exceptionsFile
+                      ? "2px solid rgba(34,197,94,0.5)"
+                      : "2px dashed rgba(96,125,255,0.5)",
+                  }}
+                >
+                  <span style={{ fontSize: 20, marginRight: 8 }}>
+                    {exceptionsFile ? "✓" : "🗂️"}
+                  </span>
+                  {exceptionsFile
+                    ? exceptionsFile.name
+                    : "Choose Exceptions (.csv)"}
+                </button>
+
+                <div style={{ marginTop: 14 }}>
+                  <label style={styles.label}>Exceptions quarter (Column D)</label>
+                  <input
+                    value={exceptionsQuarter}
+                    onChange={(e) => setExceptionsQuarter(e.target.value)}
+                    placeholder='e.g., "Q1 FY26"'
+                    disabled={isSubmitting}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #2b2b3f",
+                      background: "#0e0e16",
+                      color: "#f4f4f5",
+                    }}
+                  />
+                  <div style={styles.helperText}>
+                    Matches Exceptions Column D exactly (after trimming).
+                  </div>
+                </div>
+
+                <div style={{ marginTop: 14 }}>
+                  <label style={styles.label}>Exceptions country (Column F)</label>
+                  <input
+                    value={exceptionsCountry}
+                    onChange={(e) => setExceptionsCountry(e.target.value)}
+                    placeholder='e.g., "United States"'
+                    disabled={isSubmitting}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #2b2b3f",
+                      background: "#0e0e16",
+                      color: "#f4f4f5",
+                    }}
+                  />
+                  <div style={styles.helperText}>
+                    Matches Exceptions Column F exactly (after trimming). Output
+                    writes into slide 3 placeholder [5] as:{" "}
+                    <span style={{ color: "#f4f4f5" }}>
+                      {"{num} exception requests: {unique types from Column I}"}
+                    </span>
+                    .
+                  </div>
                 </div>
               </div>
             </div>
@@ -918,8 +1101,8 @@ const BUSINESS_LVL1_DESC_TO_CODE: Record<string, string> = {
 
 function norm(s: string) {
   return String(s ?? "")
-    .replace(/\u00A0/g, " ")   // non-breaking space -> normal space
-    .replace(/\s+/g, " ")     // collapse multiple spaces
+    .replace(/\u00A0/g, " ") // non-breaking space -> normal space
+    .replace(/\s+/g, " ") // collapse multiple spaces
     .trim()
     .toLowerCase();
 }
@@ -952,8 +1135,7 @@ function sheetToRawRows(ws: XLSX.WorkSheet): RawRow[] {
       const workLocationCountryDesc = String(r?.[8] ?? "").trim(); // I
       const rawGroupJDesc = String(r?.[9] ?? "").trim(); // J (Business Lvl 1 Desc)
       const groupJ =
-        BUSINESS_LVL1_DESC_TO_CODE_NORM[norm(rawGroupJDesc)] ??
-        rawGroupJDesc;
+        BUSINESS_LVL1_DESC_TO_CODE_NORM[norm(rawGroupJDesc)] ?? rawGroupJDesc;
 
       return {
         count: Number.isFinite(count) ? count : 0,
@@ -1054,17 +1236,13 @@ function renderPieChartToCanvas(
     ctx.fillStyle = palette[i % palette.length];
     ctx.fillRect(420, y - 12, 14, 14);
     ctx.fillStyle = "#111827";
-    ctx.fillText(
-      `${labels[i]} — ${pct}% (${Math.round(values[i])})`,
-      440,
-      y
-    );
+    ctx.fillText(`${labels[i]} — ${pct}% (${Math.round(values[i])})`, 440, y);
     y += 24;
   }
 }
 
 function escapeXml(s: string) {
-  return s
+  return String(s ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -1081,6 +1259,66 @@ function downloadBlob(blob: Blob, filename: string) {
   a.click();
   a.remove();
   window.URL.revokeObjectURL(url);
+}
+
+/**
+ * ✅ NEW: CSV parser that handles commas + quotes
+ * Returns rows as string[][]
+ */
+function parseCsvToRows(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+
+  const pushField = () => {
+    row.push(field);
+    field = "";
+  };
+
+  const pushRow = () => {
+    // keep row even if empty; caller can filter
+    rows.push(row);
+    row = [];
+  };
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+
+    if (ch === '"') {
+      // handle escaped quotes ""
+      const next = text[i + 1];
+      if (inQuotes && next === '"') {
+        field += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (!inQuotes && ch === ",") {
+      pushField();
+      continue;
+    }
+
+    if (!inQuotes && (ch === "\n" || ch === "\r")) {
+      // handle CRLF
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+
+      pushField();
+      pushRow();
+      continue;
+    }
+
+    field += ch;
+  }
+
+  // last field/row
+  pushField();
+  pushRow();
+
+  return rows.map((r) => r.map((c) => String(c ?? "")));
 }
 
 const styles: Record<string, React.CSSProperties> = {
