@@ -287,7 +287,7 @@ type AuditRunResult = {
  */
 
 export default function Page() {
-  const [slideType, setSlideType] = useState<SlideTypeId>(SLIDE_DEFS[0].id);
+  const [slideType, setSlideType] = useState<SlideTypeId>(SLIDE_DEFS[0]!.id);
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [excelFile, setExcelFile] = useState<File | null>(null);
 
@@ -344,7 +344,7 @@ export default function Page() {
     setError(null);
     setSuccessMsg(null);
     setCwDash(null);
-    setSlideType(SLIDE_DEFS[0].id);
+    setSlideType(SLIDE_DEFS[0]!.id);
     setTemplateFile(null);
     setExcelFile(null);
     setRawDataFile(null);
@@ -377,7 +377,7 @@ export default function Page() {
         return;
       }
       if (!exceptionsFile) {
-        setError('For CW Risk Assessment, upload the Exceptions (.csv) file too.');
+        setError("For CW Risk Assessment, upload the Exceptions (.csv) file too.");
         return;
       }
 
@@ -459,7 +459,7 @@ export default function Page() {
 
     const slideLabel = selectedSlideDef?.label ?? "selected";
     if (Object.keys(mapping).length === 0) {
-      setError('The "' + slideLabel + '" slide type mapping is empty.');
+      setError(`The "${slideLabel}" slide type mapping is empty.`);
       return;
     }
 
@@ -472,11 +472,15 @@ export default function Page() {
         type: "array",
         cellDates: true,
       });
+
       const sheetName = workbook.SheetNames[0];
+      if (!sheetName) throw new Error("No worksheet found in Excel file.");
+
       const sheet = workbook.Sheets[sheetName];
+      if (!sheet) throw new Error(`Worksheet "${sheetName}" could not be read.`);
 
       const getCellObj = (ref: string) => {
-        const cell = (sheet as any)?.[ref];
+        const cell = (sheet as Record<string, any>)?.[ref];
         return cell ?? null;
       };
 
@@ -555,8 +559,16 @@ export default function Page() {
           const mm = String(month).padStart(2, "0");
           return `${mm}/${year}`;
         }
-        if (format === "MMMM YYYY") return `${monLong[month - 1]} ${year}`;
-        return `${monShort[month - 1]} ${year}`;
+
+        if (format === "MMMM YYYY") {
+          const longName = monLong[month - 1];
+          if (!longName) return "N/A";
+          return `${longName} ${year}`;
+        }
+
+        const shortName = monShort[month - 1];
+        if (!shortName) return "N/A";
+        return `${shortName} ${year}`;
       };
 
       // ---- Exceptions summary ----
@@ -599,8 +611,14 @@ export default function Page() {
       if (slideType === "cw_risk_assessment" && dataAuditFile) {
         const auditBuf = await dataAuditFile.arrayBuffer();
         const auditWb = XLSX.read(auditBuf, { type: "array", cellDates: true });
+
         const auditSheetName = auditWb.SheetNames[0];
+        if (!auditSheetName) throw new Error("No worksheet found in Data Audit file.");
+
         const auditSheet = auditWb.Sheets[auditSheetName];
+        if (!auditSheet) {
+          throw new Error(`Worksheet "${auditSheetName}" could not be read.`);
+        }
 
         const auditInputRows = XLSX.utils.sheet_to_json<Record<string, any>>(
           auditSheet,
@@ -647,8 +665,12 @@ export default function Page() {
       if (slideType === "cw_risk_assessment" && rawDataFile) {
         const rawBuf = await rawDataFile.arrayBuffer();
         const rawWb = XLSX.read(rawBuf, { type: "array", cellDates: true });
+
         const rawSheetName = rawWb.SheetNames[0];
+        if (!rawSheetName) throw new Error("No worksheet found in Raw Data file.");
+
         const rawSheet = rawWb.Sheets[rawSheetName];
+        if (!rawSheet) throw new Error(`Worksheet "${rawSheetName}" could not be read.`);
 
         const rowsAll = sheetToRawRows(rawSheet);
 
@@ -661,9 +683,7 @@ export default function Page() {
 
         if (rows.length === 0) {
           setError(
-            'No Raw Data rows matched country "' +
-              cwCountry.trim() +
-              '" in Column I (Work Location Country Desc).'
+            `No Raw Data rows matched country "${cwCountry.trim()}" in Column I (Work Location Country Desc).`
           );
           setIsSubmitting(false);
           return;
@@ -687,10 +707,10 @@ export default function Page() {
         const table2: string[][] = [
           ["Employee Type", ...pv.colKeys],
           ...pv.rowKeys.map((rk) => {
-            const rowMap = pv.data.get(rk)!;
+            const rowMap = pv.data.get(rk);
             return [
               rk,
-              ...pv.colKeys.map((ck) => String(Math.round(rowMap.get(ck) ?? 0))),
+              ...pv.colKeys.map((ck) => String(Math.round(rowMap?.get(ck) ?? 0))),
             ];
           }),
         ];
@@ -1091,6 +1111,7 @@ export default function Page() {
 function HtmlTable({ grid }: { grid: string[][] }) {
   if (!grid?.length) return null;
   const [header, ...body] = grid;
+  if (!header) return null;
 
   return (
     <table
@@ -1273,10 +1294,13 @@ function pivot(rows: RawRow[]) {
   const colKeys = Array.from(new Set(rows.map((r) => r.groupJ))).sort();
 
   const data = new Map<string, Map<string, number>>();
-  for (const rk of rowKeys) data.set(rk, new Map(colKeys.map((ck) => [ck, 0])));
+  for (const rk of rowKeys) {
+    data.set(rk, new Map(colKeys.map((ck) => [ck, 0])));
+  }
 
   for (const r of rows) {
-    const rowMap = data.get(r.employeeType)!;
+    const rowMap = data.get(r.employeeType);
+    if (!rowMap) continue;
     rowMap.set(r.groupJ, (rowMap.get(r.groupJ) ?? 0) + r.count);
   }
 
@@ -1345,7 +1369,7 @@ const AC_LENGTH_THRESHOLDS: Record<string, string> = {
   singapore: ">12 months",
   spain: ">12 months",
   taiwan: ">12 months",
-  united kingdom: ">24 months",
+  "united kingdom": ">24 months",
   vietnam: ">12 months",
 };
 
@@ -1462,8 +1486,7 @@ function runDataAudit(
       _begin: begin,
       _end: end,
       _duration_days: durationDays,
-      _duration_months:
-        durationDays == null ? null : durationDays / 30.4375,
+      _duration_months: durationDays == null ? null : durationDays / 30.4375,
       _age: ageVal,
       _loa_replacement: toBoolLike(r[COL_LOA_FLAG]),
       _reasons: [],
@@ -1706,11 +1729,13 @@ function renderPieChartToCanvas(
   let angle = -Math.PI / 2;
   values.forEach((v, i) => {
     const slice = (v / total) * Math.PI * 2;
+    const color = palette[i % palette.length] ?? "#2563eb";
+
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, r, angle, angle + slice);
     ctx.closePath();
-    ctx.fillStyle = palette[i % palette.length];
+    ctx.fillStyle = color;
     ctx.fill();
     angle += slice;
   });
@@ -1719,7 +1744,8 @@ function renderPieChartToCanvas(
   let y = 70;
   for (let i = 0; i < Math.min(labels.length, 12); i++) {
     const pct = ((values[i] / total) * 100).toFixed(1);
-    ctx.fillStyle = palette[i % palette.length];
+    const legendColor = palette[i % palette.length] ?? "#2563eb";
+    ctx.fillStyle = legendColor;
     ctx.fillRect(420, y - 12, 14, 14);
     ctx.fillStyle = "#111827";
     ctx.fillText(`${labels[i]} — ${pct}% (${Math.round(values[i])})`, 440, y);
