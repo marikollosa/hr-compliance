@@ -21,8 +21,8 @@ type CellSpec =
       ref: string;
       format?: "Mon YYYY" | "MMMM YYYY" | "MM/YYYY";
     }
-  // ✅ NEW: computed value from Exceptions CSV (CW only)
-  | { type: "exceptions_summary" };
+  | { type: "exceptions_summary" }
+  | { type: "data_audit_summary" };
 
 type SlideMapping = Record<number, Record<string, CellSpec>>;
 
@@ -160,8 +160,8 @@ const CW_RISK_ASSESSMENT_MAPPING: SlideMapping = {
     "[2]": { type: "cell", ref: "K3" },
     "[3]": { type: "cell", ref: "K4" },
     "[4]": { type: "cell", ref: "K5" },
-    // ✅ NEW: slide 3 placeholder [5] comes from Exceptions CSV summary
     "[5]": { type: "exceptions_summary" },
+    "[6]": { type: "data_audit_summary" },
   },
   4: {
     "[A1]": { type: "cell", ref: "H2" },
@@ -249,16 +249,54 @@ type CwDashboard = {
   pieTitle: string;
 };
 
+type RawRow = {
+  count: number;
+  employeeType: string;
+  groupF: string;
+  groupJ: string;
+  workLocationCountryDesc: string;
+};
+
+type AuditSeverity = "" | "MANUAL_REVIEW" | "ERROR";
+
+type AuditWorkingRow = Record<string, any> & {
+  _country: string;
+  _supplier: string;
+  _jobtitle: string;
+  _cw_type: string;
+  _begin: Date | null;
+  _end: Date | null;
+  _duration_days: number | null;
+  _duration_months: number | null;
+  _age: number | null;
+  _loa_replacement: boolean;
+  _reasons: string[];
+  _severity: AuditSeverity;
+};
+
+type AuditRunResult = {
+  flaggedRows: AuditWorkingRow[];
+  exportRows: Record<string, any>[];
+  summary: string;
+};
+
+/**
+ * -----------------------------
+ * PAGE
+ * -----------------------------
+ */
+
 export default function Page() {
   const [slideType, setSlideType] = useState<SlideTypeId>(SLIDE_DEFS[0].id);
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [excelFile, setExcelFile] = useState<File | null>(null);
 
   const [rawDataFile, setRawDataFile] = useState<File | null>(null);
+  const [dataAuditFile, setDataAuditFile] = useState<File | null>(null);
+
   const [cwDash, setCwDash] = useState<CwDashboard | null>(null);
   const [cwCountry, setCwCountry] = useState<string>("");
 
-  // ✅ NEW: Exceptions CSV + quarter/country inputs
   const [exceptionsFile, setExceptionsFile] = useState<File | null>(null);
   const [exceptionsQuarter, setExceptionsQuarter] = useState<string>("");
   const [exceptionsCountry, setExceptionsCountry] = useState<string>("");
@@ -280,6 +318,7 @@ export default function Page() {
     if (slideType === "cw_risk_assessment") {
       return Boolean(
         rawDataFile &&
+          dataAuditFile &&
           exceptionsFile &&
           exceptionsQuarter.trim() &&
           exceptionsCountry.trim() &&
@@ -293,6 +332,7 @@ export default function Page() {
     templateFile,
     excelFile,
     rawDataFile,
+    dataAuditFile,
     exceptionsFile,
     exceptionsQuarter,
     exceptionsCountry,
@@ -308,6 +348,7 @@ export default function Page() {
     setTemplateFile(null);
     setExcelFile(null);
     setRawDataFile(null);
+    setDataAuditFile(null);
     setCwCountry("");
     setExceptionsFile(null);
     setExceptionsQuarter("");
@@ -331,6 +372,10 @@ export default function Page() {
         setError("For CW Risk Assessment, upload the Raw Data (.xlsx) file too.");
         return;
       }
+      if (!dataAuditFile) {
+        setError("For CW Risk Assessment, upload the Data Audit (.xlsx) file too.");
+        return;
+      }
       if (!exceptionsFile) {
         setError('For CW Risk Assessment, upload the Exceptions (.csv) file too.');
         return;
@@ -346,13 +391,13 @@ export default function Page() {
 
       const q = exceptionsQuarter.trim();
       if (!q) {
-        setError('For CW Risk Assessment, enter a quarter for Exceptions (matches Column D).');
+        setError("For CW Risk Assessment, enter a quarter for Exceptions (matches Column D).");
         return;
       }
 
       const ec = exceptionsCountry.trim();
       if (!ec) {
-        setError('For CW Risk Assessment, enter a country for Exceptions (matches Column F).');
+        setError("For CW Risk Assessment, enter a country for Exceptions (matches Column F).");
         return;
       }
     }
@@ -387,6 +432,18 @@ export default function Page() {
         return;
       }
 
+      const auditLower = dataAuditFile!.name.toLowerCase();
+      if (
+        !(
+          auditLower.endsWith(".xlsx") ||
+          auditLower.endsWith(".xls") ||
+          auditLower.endsWith(".xlsm")
+        )
+      ) {
+        setError("Data Audit must be a .xlsx, .xlsm, or .xls file.");
+        return;
+      }
+
       const exLower = exceptionsFile!.name.toLowerCase();
       if (!exLower.endsWith(".csv")) {
         setError("Exceptions must be a .csv file.");
@@ -400,7 +457,6 @@ export default function Page() {
       return;
     }
 
-    // ✅ FIX: avoid template literal (turbopack parser issue)
     const slideLabel = selectedSlideDef?.label ?? "selected";
     if (Object.keys(mapping).length === 0) {
       setError('The "' + slideLabel + '" slide type mapping is empty.');
@@ -503,21 +559,21 @@ export default function Page() {
         return `${monShort[month - 1]} ${year}`;
       };
 
-      // ✅ NEW: Exceptions summary (computed once, used by slide mapping)
+      // ---- Exceptions summary ----
       let exceptionsSummary = "N/A";
 
       if (slideType === "cw_risk_assessment" && exceptionsFile) {
         const exText = await exceptionsFile.text();
         const rows = parseCsvToRows(exText);
 
-        // Skip completely empty lines
-        const dataRows = rows.filter((r) => r.some((x) => String(x ?? "").trim() !== ""));
-        const hasHeader = dataRows.length > 0; // we’ll just filter everything; header won’t match typically
+        const dataRows = rows.filter((r) =>
+          r.some((x) => String(x ?? "").trim() !== "")
+        );
+        const hasHeader = dataRows.length > 0;
 
         const qNeedle = exceptionsQuarter.trim().toLowerCase();
         const cNeedle = exceptionsCountry.trim().toLowerCase();
 
-        // Columns: D = index 3, F = index 5, I = index 8
         const matches = (hasHeader ? dataRows.slice(1) : dataRows).filter((r) => {
           const q = String(r?.[3] ?? "").trim().toLowerCase();
           const c = String(r?.[5] ?? "").trim().toLowerCase();
@@ -532,11 +588,35 @@ export default function Page() {
           if (t) typeSet.add(t);
         }
 
-        const types = Array.from(typeSet);
-        types.sort((a, b) => a.localeCompare(b));
-
+        const types = Array.from(typeSet).sort((a, b) => a.localeCompare(b));
         const typeList = types.length ? types.join(", ") : "None";
         exceptionsSummary = `${num} exception requests: ${typeList}`;
+      }
+
+      // ---- Data Audit summary + export ----
+      let dataAuditSummary = "N/A";
+
+      if (slideType === "cw_risk_assessment" && dataAuditFile) {
+        const auditBuf = await dataAuditFile.arrayBuffer();
+        const auditWb = XLSX.read(auditBuf, { type: "array", cellDates: true });
+        const auditSheetName = auditWb.SheetNames[0];
+        const auditSheet = auditWb.Sheets[auditSheetName];
+
+        const auditInputRows = XLSX.utils.sheet_to_json<Record<string, any>>(
+          auditSheet,
+          { defval: "" }
+        );
+
+        const auditRun = runDataAudit(auditInputRows, cwCountry.trim());
+        dataAuditSummary = auditRun.summary;
+
+        const flaggedWs = XLSX.utils.json_to_sheet(auditRun.exportRows);
+        const flaggedWb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(flaggedWb, flaggedWs, "Flagged Records");
+        XLSX.writeFile(
+          flaggedWb,
+          `cw_data_audit_flagged_${sanitizeFilename(cwCountry.trim() || "all")}.xlsx`
+        );
       }
 
       const resolveSpec = (spec: CellSpec): string => {
@@ -549,6 +629,10 @@ export default function Page() {
 
         if (spec.type === "exceptions_summary") {
           return exceptionsSummary || "N/A";
+        }
+
+        if (spec.type === "data_audit_summary") {
+          return dataAuditSummary || "N/A";
         }
 
         const parts = spec.refs
@@ -571,9 +655,8 @@ export default function Page() {
         const targetCountry = cwCountry.trim().toLowerCase();
         const rows = rowsAll.filter(
           (r) =>
-            String(r.workLocationCountryDesc ?? "")
-              .trim()
-              .toLowerCase() === targetCountry
+            String(r.workLocationCountryDesc ?? "").trim().toLowerCase() ===
+            targetCountry
         );
 
         if (rows.length === 0) {
@@ -607,9 +690,7 @@ export default function Page() {
             const rowMap = pv.data.get(rk)!;
             return [
               rk,
-              ...pv.colKeys.map((ck) =>
-                String(Math.round(rowMap.get(ck) ?? 0))
-              ),
+              ...pv.colKeys.map((ck) => String(Math.round(rowMap.get(ck) ?? 0))),
             ];
           }),
         ];
@@ -653,7 +734,9 @@ export default function Page() {
       });
 
       downloadBlob(outBlob, `generated_${slideType}.pptx`);
-      setSuccessMsg("Generated! Your download should start automatically.");
+      setSuccessMsg(
+        "Generated! Your PPT download should start automatically. The flagged Data Audit workbook should download too for CW Risk Assessment."
+      );
     } catch (e: any) {
       setError(e?.message || "Something went wrong generating the slides.");
     } finally {
@@ -802,14 +885,7 @@ export default function Page() {
                   onChange={(e) => setCwCountry(e.target.value)}
                   placeholder='e.g., "United States"'
                   disabled={isSubmitting}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #2b2b3f",
-                    background: "#0e0e16",
-                    color: "#f4f4f5",
-                  }}
+                  style={styles.textInput}
                 />
                 <div style={styles.helperText}>
                   CW outputs will only include rows where Column I matches this
@@ -817,7 +893,47 @@ export default function Page() {
                 </div>
               </div>
 
-              {/* ✅ NEW: Exceptions CSV upload + quarter/country inputs */}
+              <div style={{ marginTop: 18 }}>
+                <label style={styles.label}>Data Audit (.xlsx)</label>
+                <input
+                  ref={(el) => {
+                    if (el) (window as any).dataAuditInput = el;
+                  }}
+                  type="file"
+                  accept=".xlsx,.xls,.xlsm"
+                  onChange={(e) =>
+                    setDataAuditFile(e.target.files?.[0] ?? null)
+                  }
+                  disabled={isSubmitting}
+                  style={{ display: "none" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => (window as any).dataAuditInput?.click()}
+                  disabled={isSubmitting}
+                  style={{
+                    ...styles.fileButton,
+                    background: dataAuditFile
+                      ? "rgba(34,197,94,0.12)"
+                      : "rgba(96,125,255,0.12)",
+                    border: dataAuditFile
+                      ? "2px solid rgba(34,197,94,0.5)"
+                      : "2px dashed rgba(96,125,255,0.5)",
+                  }}
+                >
+                  <span style={{ fontSize: 20, marginRight: 8 }}>
+                    {dataAuditFile ? "✓" : "🛡️"}
+                  </span>
+                  {dataAuditFile
+                    ? dataAuditFile.name
+                    : "Choose Data Audit (.xlsx)"}
+                </button>
+                <div style={styles.helperText}>
+                  Runs the Data Audit rules, downloads a flagged workbook, and
+                  writes the country-level summary into slide 3 placeholder [6].
+                </div>
+              </div>
+
               <div style={{ marginTop: 18 }}>
                 <label style={styles.label}>Exceptions (.csv)</label>
                 <input
@@ -861,14 +977,7 @@ export default function Page() {
                     onChange={(e) => setExceptionsQuarter(e.target.value)}
                     placeholder='e.g., "Q1 FY26"'
                     disabled={isSubmitting}
-                    style={{
-                      width: "100%",
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      border: "1px solid #2b2b3f",
-                      background: "#0e0e16",
-                      color: "#f4f4f5",
-                    }}
+                    style={styles.textInput}
                   />
                   <div style={styles.helperText}>
                     Matches Exceptions Column D exactly (after trimming).
@@ -882,22 +991,11 @@ export default function Page() {
                     onChange={(e) => setExceptionsCountry(e.target.value)}
                     placeholder='e.g., "United States"'
                     disabled={isSubmitting}
-                    style={{
-                      width: "100%",
-                      padding: "10px 12px",
-                      borderRadius: 10,
-                      border: "1px solid #2b2b3f",
-                      background: "#0e0e16",
-                      color: "#f4f4f5",
-                    }}
+                    style={styles.textInput}
                   />
                   <div style={styles.helperText}>
                     Matches Exceptions Column F exactly (after trimming). Output
-                    writes into slide 3 placeholder [5] as:{" "}
-                    <span style={{ color: "#f4f4f5" }}>
-                      {"{num} exception requests: {unique types from Column I}"}
-                    </span>
-                    .
+                    writes into slide 3 placeholder [5].
                   </div>
                 </div>
               </div>
@@ -934,7 +1032,7 @@ export default function Page() {
         </button>
 
         <div style={styles.note}>
-          This version runs fully in the browser (GitHub Pages-friendly).
+          This version runs fully in the browser.
         </div>
 
         {slideType === "cw_risk_assessment" && cwDash && (
@@ -983,6 +1081,12 @@ export default function Page() {
     </main>
   );
 }
+
+/**
+ * -----------------------------
+ * UI HELPERS
+ * -----------------------------
+ */
 
 function HtmlTable({ grid }: { grid: string[][] }) {
   if (!grid?.length) return null;
@@ -1076,6 +1180,12 @@ function PieCanvas({
   );
 }
 
+/**
+ * -----------------------------
+ * RAW DATA HELPERS
+ * -----------------------------
+ */
+
 const BUSINESS_LVL1_DESC_TO_CODE: Record<string, string> = {
   "Communications Technology Group": "CME",
   "Global Marketing": "CMP",
@@ -1090,19 +1200,19 @@ const BUSINESS_LVL1_DESC_TO_CODE: Record<string, string> = {
   "Hybrid Cloud": "GLDV",
   "HPE Go to Market": "GOM",
   "Human Resources": "HR",
-  "OLAA": "LEGO",
+  OLAA: "LEGO",
   "OTHER - Finance Only": "OTH",
-  "OTHER": "OTHS",
+  OTHER: "OTHS",
   "Printing and Personal System": "PPSG",
-  "Servers": "SVRS",
+  Servers: "SVRS",
   "LEGACY-Enterprise Business-TSG": "TSG",
-  "Unknown": "UNK",
+  Unknown: "UNK",
 };
 
 function norm(s: string) {
   return String(s ?? "")
-    .replace(/\u00A0/g, " ") // non-breaking space -> normal space
-    .replace(/\s+/g, " ") // collapse multiple spaces
+    .replace(/\u00A0/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
 }
@@ -1115,25 +1225,17 @@ const BUSINESS_LVL1_DESC_TO_CODE_NORM: Record<string, string> =
     ])
   );
 
-type RawRow = {
-  count: number;
-  employeeType: string;
-  groupF: string;
-  groupJ: string;
-  workLocationCountryDesc: string;
-};
-
 function sheetToRawRows(ws: XLSX.WorkSheet): RawRow[] {
   const aoa = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, raw: true });
   const data = aoa.slice(1);
 
   return data
     .map((r) => {
-      const count = Number(r?.[1] ?? 0); // B
-      const employeeType = String(r?.[2] ?? "").trim(); // C
-      const groupF = String(r?.[5] ?? "").trim(); // F
-      const workLocationCountryDesc = String(r?.[8] ?? "").trim(); // I
-      const rawGroupJDesc = String(r?.[9] ?? "").trim(); // J (Business Lvl 1 Desc)
+      const count = Number(r?.[1] ?? 0);
+      const employeeType = String(r?.[2] ?? "").trim();
+      const groupF = String(r?.[5] ?? "").trim();
+      const workLocationCountryDesc = String(r?.[8] ?? "").trim();
+      const rawGroupJDesc = String(r?.[9] ?? "").trim();
       const groupJ =
         BUSINESS_LVL1_DESC_TO_CODE_NORM[norm(rawGroupJDesc)] ?? rawGroupJDesc;
 
@@ -1180,6 +1282,390 @@ function pivot(rows: RawRow[]) {
 
   return { rowKeys, colKeys, data };
 }
+
+/**
+ * -----------------------------
+ * DATA AUDIT HELPERS
+ * -----------------------------
+ */
+
+const COL_COUNTRY = "Work Location Country Desc";
+const COL_CWTYPE = "CW TYPE";
+const COL_SUPPLIER = "Provider Desc";
+const COL_JOBTITLE = "Contingent Job Title";
+const COL_BEGIN = "Contract Begin Date";
+const COL_END = "Contract Expected End Date";
+const COL_AGE = "Age";
+const COL_LOA_FLAG = "LOA Replacement";
+
+const SEV_ORDER: Record<AuditSeverity, number> = {
+  "": 0,
+  MANUAL_REVIEW: 1,
+  ERROR: 2,
+};
+
+const SPECIALIZED_SUPPLIERS_MEXICO = new Set([
+  "adecco",
+  "randstad",
+  "manpower",
+  "kelly",
+  "allegis",
+  "tapfin",
+  "guidant",
+  "magnit",
+  "pontoon",
+]);
+
+const SUPPLIER_AC_NOT_ALLOWED = new Set(["iss", "securitas"]);
+const AC_ANY_COUNTRIES = new Set([
+  "costa rica",
+  "chile",
+  "qatar",
+  "russian federation",
+  "indonesia",
+  "thailand",
+]);
+
+const AC_LENGTH_THRESHOLDS: Record<string, string> = {
+  argentina: ">12 months",
+  brazil: ">270 days",
+  colombia: ">12 months",
+  france: ">18 months",
+  germany: ">18 months",
+  india: ">12 months",
+  ireland: ">12 months",
+  israel: ">9 months",
+  korea: ">24 months",
+  luxembourg: ">12 months",
+  malaysia: ">12 months",
+  netherlands: ">12 months",
+  philippines: ">5 months",
+  poland: ">18 months",
+  portugal: ">12 months",
+  singapore: ">12 months",
+  spain: ">12 months",
+  taiwan: ">12 months",
+  united kingdom: ">24 months",
+  vietnam: ">12 months",
+};
+
+const AC_LENGTH_MANUAL = new Set(["luxembourg", "poland", "spain"]);
+
+function normStr(v: any): string {
+  return String(v ?? "").trim().toLowerCase();
+}
+
+function toBoolLike(v: any): boolean {
+  const x = normStr(v);
+  return ["true", "t", "yes", "y", "1"].includes(x);
+}
+
+function normalizeCwType(v: any): string {
+  const x = normStr(v);
+  if (x === "ac" || x === "agency contractor") return "AC";
+  if (x === "osc" || x === "outsourced service contractor") return "OSC";
+  return String(v ?? "").trim().toUpperCase();
+}
+
+function parseExcelDate(value: any): Date | null {
+  if (value instanceof Date && !isNaN(value.getTime())) return value;
+
+  if (typeof value === "number") {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (parsed?.y && parsed?.m && parsed?.d) {
+      return new Date(parsed.y, parsed.m - 1, parsed.d);
+    }
+  }
+
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function daysBetween(a: Date | null, b: Date | null): number | null {
+  if (!a || !b) return null;
+  return Math.floor((b.getTime() - a.getTime()) / 86400000);
+}
+
+function parseThresholdToDays(input: string): number | null {
+  const s = normStr(input).replace(/^>/, "").trim();
+  const m = s.match(/^(\d+(?:\.\d+)?)\s*(day|days|month|months|year|years)$/);
+  if (!m) return null;
+
+  const n = Number(m[1]);
+  const unit = m[2];
+  if (unit.startsWith("day")) return n;
+  if (unit.startsWith("month")) return n * 30.4375;
+  if (unit.startsWith("year")) return n * 365.25;
+  return null;
+}
+
+function addAuditReason(
+  row: AuditWorkingRow,
+  reason: string,
+  severity: AuditSeverity
+) {
+  if (!reason) return;
+  if (!row._reasons.includes(reason)) row._reasons.push(reason);
+
+  if (SEV_ORDER[severity] > SEV_ORDER[row._severity]) {
+    row._severity = severity;
+  }
+}
+
+function ensureAuditRequiredColumns(rows: Record<string, any>[]) {
+  const required = [
+    COL_COUNTRY,
+    COL_CWTYPE,
+    COL_SUPPLIER,
+    COL_JOBTITLE,
+    COL_BEGIN,
+    COL_END,
+  ];
+
+  if (!rows.length) {
+    throw new Error("Data Audit workbook is empty.");
+  }
+
+  const available = new Set(Object.keys(rows[0] ?? {}));
+  const missing = required.filter((c) => !available.has(c));
+
+  if (missing.length) {
+    throw new Error(
+      "Data Audit workbook is missing required columns: " + missing.join(", ")
+    );
+  }
+}
+
+function runDataAudit(
+  inputRows: Record<string, any>[],
+  targetCountry: string
+): AuditRunResult {
+  ensureAuditRequiredColumns(inputRows);
+
+  const workingRows: AuditWorkingRow[] = inputRows.map((r) => {
+    const begin = parseExcelDate(r[COL_BEGIN]);
+    const end = parseExcelDate(r[COL_END]);
+    const durationDays = daysBetween(begin, end);
+
+    const ageRaw = r[COL_AGE];
+    const ageVal =
+      ageRaw === "" || ageRaw == null || Number.isNaN(Number(ageRaw))
+        ? null
+        : Number(ageRaw);
+
+    return {
+      ...r,
+      _country: normStr(r[COL_COUNTRY]),
+      _supplier: normStr(r[COL_SUPPLIER]),
+      _jobtitle: normStr(r[COL_JOBTITLE]),
+      _cw_type: normalizeCwType(r[COL_CWTYPE]),
+      _begin: begin,
+      _end: end,
+      _duration_days: durationDays,
+      _duration_months:
+        durationDays == null ? null : durationDays / 30.4375,
+      _age: ageVal,
+      _loa_replacement: toBoolLike(r[COL_LOA_FLAG]),
+      _reasons: [],
+      _severity: "",
+    };
+  });
+
+  for (const row of workingRows) {
+    const country = row._country;
+    const cwType = row._cw_type;
+    const supplier = row._supplier;
+    const jobTitle = row._jobtitle;
+    const durationDays = row._duration_days;
+
+    if (row._begin && row._end && durationDays != null && durationDays < 0) {
+      addAuditReason(
+        row,
+        "Date rule: Contract Expected End Date is earlier than Contract Begin Date",
+        "ERROR"
+      );
+    }
+
+    if (country === "mexico" && cwType === "AC") {
+      addAuditReason(row, "Mexico: AC not allowed", "ERROR");
+    }
+
+    if (country === "mexico" && cwType === "OSC") {
+      addAuditReason(row, "Mexico: OSC not allowed", "ERROR");
+    }
+
+    if (
+      country === "mexico" &&
+      supplier &&
+      SPECIALIZED_SUPPLIERS_MEXICO.has(supplier)
+    ) {
+      addAuditReason(
+        row,
+        "Mexico: specialized supplier requires manual validation",
+        "MANUAL_REVIEW"
+      );
+    }
+
+    if (AC_ANY_COUNTRIES.has(country) && cwType === "AC") {
+      addAuditReason(row, "Country policy: AC not allowed", "ERROR");
+    }
+
+    const thresholdText = AC_LENGTH_THRESHOLDS[country];
+    if (cwType === "AC" && thresholdText && durationDays != null) {
+      const limitDays = parseThresholdToDays(thresholdText);
+      if (limitDays != null && durationDays > limitDays) {
+        const sev: AuditSeverity = AC_LENGTH_MANUAL.has(country)
+          ? "MANUAL_REVIEW"
+          : "ERROR";
+        addAuditReason(
+          row,
+          `Length rule: AC exceeds ${thresholdText.replace(/^>/, "").trim()}`,
+          sev
+        );
+      }
+    }
+
+    if (country === "korea" && cwType === "AC" && durationDays != null) {
+      const koreaLimit = parseThresholdToDays(">24 months") ?? 730.5;
+      if (durationDays > koreaLimit) {
+        if (row._age == null) {
+          addAuditReason(
+            row,
+            "Korea: exceeds 24 months; Age missing (55+ exception may apply)",
+            "MANUAL_REVIEW"
+          );
+        } else if (row._age <= 55) {
+          addAuditReason(row, "Korea: AC exceeds 24 months", "ERROR");
+        }
+      }
+    }
+
+    if (country === "israel" && cwType === "AC" && durationDays != null) {
+      const israelLimit = parseThresholdToDays(">9 months") ?? 273.9375;
+      if (durationDays > israelLimit) {
+        if (jobTitle.includes("non-comput")) {
+          addAuditReason(
+            row,
+            "Israel: non-computing role exceeds 9 months",
+            "ERROR"
+          );
+        } else {
+          addAuditReason(
+            row,
+            "Israel: AC exceeds 9 months; verify computing-role exception",
+            "MANUAL_REVIEW"
+          );
+        }
+      }
+    }
+
+    if (country === "china" && durationDays != null) {
+      const chinaLimit = parseThresholdToDays(">72 months") ?? 2191.5;
+      if (durationDays > chinaLimit) {
+        addAuditReason(
+          row,
+          "China: length >72 months exceeds policy",
+          "ERROR"
+        );
+      }
+    }
+
+    if (country === "turkey" && durationDays != null) {
+      const turkeyLimit = parseThresholdToDays(">24 months") ?? 730.5;
+      if (durationDays > turkeyLimit) {
+        if (COL_LOA_FLAG in row) {
+          if (!row._loa_replacement) {
+            addAuditReason(
+              row,
+              "Turkey: exceeds 24 months; verify LOA replacement exception",
+              "MANUAL_REVIEW"
+            );
+          }
+        } else {
+          addAuditReason(
+            row,
+            "Turkey: exceeds 24 months; LOA Replacement column missing",
+            "MANUAL_REVIEW"
+          );
+        }
+      }
+    }
+
+    if (country === "tunisia") {
+      addAuditReason(
+        row,
+        "Tunisia: table indicates review for all records (verify intended rule)",
+        "MANUAL_REVIEW"
+      );
+    }
+
+    if (jobTitle === "assistant" && cwType === "OSC") {
+      addAuditReason(
+        row,
+        "Job Title rule: Assistant should not be OSC",
+        "ERROR"
+      );
+    }
+
+    if (SUPPLIER_AC_NOT_ALLOWED.has(supplier) && cwType === "AC") {
+      addAuditReason(
+        row,
+        `Supplier rule: ${String(row[COL_SUPPLIER] ?? "").trim()} should not be AC`,
+        "ERROR"
+      );
+    }
+  }
+
+  const flaggedRows = workingRows.filter((r) => r._reasons.length > 0);
+
+  const exportRows = flaggedRows.map((r) => ({
+    ...stripAuditHelpers(r),
+    Reason: r._reasons.join(" | "),
+    Severity: r._severity,
+    Contract_Duration_Days: r._duration_days ?? "",
+    Contract_Duration_Months:
+      r._duration_months == null ? "" : Number(r._duration_months.toFixed(2)),
+  }));
+
+  const target = normStr(targetCountry);
+  const matching = flaggedRows.filter((r) => r._country === target);
+
+  const uniqueReasons = Array.from(
+    new Set(
+      matching
+        .flatMap((r) => r._reasons)
+        .map((x) => x.trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  const summary =
+    matching.length === 0
+      ? `0 flagged data audit records for ${targetCountry}.`
+      : `${matching.length} flagged data audit record${
+          matching.length === 1 ? "" : "s"
+        } for ${targetCountry}: ${uniqueReasons.join(", ")}`;
+
+  return {
+    flaggedRows,
+    exportRows,
+    summary,
+  };
+}
+
+function stripAuditHelpers(row: AuditWorkingRow): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (!k.startsWith("_")) out[k] = v;
+  }
+  return out;
+}
+
+/**
+ * -----------------------------
+ * GENERAL HELPERS
+ * -----------------------------
+ */
 
 function renderPieChartToCanvas(
   canvas: HTMLCanvasElement,
@@ -1261,10 +1747,13 @@ function downloadBlob(blob: Blob, filename: string) {
   window.URL.revokeObjectURL(url);
 }
 
-/**
- * ✅ NEW: CSV parser that handles commas + quotes
- * Returns rows as string[][]
- */
+function sanitizeFilename(s: string) {
+  return String(s ?? "")
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, "_")
+    .replace(/\s+/g, "_");
+}
+
 function parseCsvToRows(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
@@ -1277,7 +1766,6 @@ function parseCsvToRows(text: string): string[][] {
   };
 
   const pushRow = () => {
-    // keep row even if empty; caller can filter
     rows.push(row);
     row = [];
   };
@@ -1286,7 +1774,6 @@ function parseCsvToRows(text: string): string[][] {
     const ch = text[i];
 
     if (ch === '"') {
-      // handle escaped quotes ""
       const next = text[i + 1];
       if (inQuotes && next === '"') {
         field += '"';
@@ -1303,9 +1790,7 @@ function parseCsvToRows(text: string): string[][] {
     }
 
     if (!inQuotes && (ch === "\n" || ch === "\r")) {
-      // handle CRLF
       if (ch === "\r" && text[i + 1] === "\n") i++;
-
       pushField();
       pushRow();
       continue;
@@ -1314,7 +1799,6 @@ function parseCsvToRows(text: string): string[][] {
     field += ch;
   }
 
-  // last field/row
   pushField();
   pushRow();
 
@@ -1356,6 +1840,14 @@ const styles: Record<string, React.CSSProperties> = {
     lineHeight: 1.3,
   },
   select: {
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid #2b2b3f",
+    background: "#0e0e16",
+    color: "#f4f4f5",
+  },
+  textInput: {
     width: "100%",
     padding: "10px 12px",
     borderRadius: 10,
