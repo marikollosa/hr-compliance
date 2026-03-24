@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import JSZip from "jszip";
 import * as XLSX from "xlsx";
 
-type SlideTypeId = "org_change" | "new_tools" | "cw_risk_assessment";
+type SlideTypeId = "org_change" | "new_tools" | "cw_risk_assessment" | "data_audit_export";
 
 type SlideType = {
   id: SlideTypeId;
@@ -239,6 +239,13 @@ const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
       "Upload the CW Risk Assessment template + Excel file to generate the filled deck.",
     mapping: CW_RISK_ASSESSMENT_MAPPING,
   },
+  {
+    id: "data_audit_export",
+    label: "Data Audit Export",
+    description:
+      "Upload a Data Audit workbook and download the flagged records as an .xlsx file.",
+    mapping: {},
+  },
 ];
 
 type CwDashboard = {
@@ -313,7 +320,13 @@ export default function Page() {
   );
 
   const canSubmit = useMemo(() => {
-    if (!(slideType && templateFile && excelFile) || isSubmitting) return false;
+    if (isSubmitting) return false;
+
+    if (slideType === "data_audit_export") {
+      return Boolean(dataAuditFile);
+    }
+
+    if (!(slideType && templateFile && excelFile)) return false;
 
     if (slideType === "cw_risk_assessment") {
       return Boolean(
@@ -362,7 +375,24 @@ export default function Page() {
     setSuccessMsg(null);
     setCwDash(null);
 
-    if (!templateFile || !excelFile) {
+    if (slideType === "data_audit_export") {
+      if (!dataAuditFile) {
+        setError("For Data Audit Export, upload the Data Audit (.xlsx) file.");
+        return;
+      }
+
+      const auditLower = dataAuditFile.name.toLowerCase();
+      if (
+        !(
+          auditLower.endsWith(".xlsx") ||
+          auditLower.endsWith(".xls") ||
+          auditLower.endsWith(".xlsm")
+        )
+      ) {
+        setError("Data Audit must be a .xlsx, .xlsm, or .xls file.");
+        return;
+      }
+    } else if (!templateFile || !excelFile) {
       setError("Upload both a PPTX template and an Excel file.");
       return;
     }
@@ -452,20 +482,55 @@ export default function Page() {
     }
 
     const mapping = selectedSlideDef?.mapping;
-    if (!mapping) {
-      setError("No mapping found for this slide type.");
-      return;
-    }
 
-    const slideLabel = selectedSlideDef?.label ?? "selected";
-    if (Object.keys(mapping).length === 0) {
-      setError(`The "${slideLabel}" slide type mapping is empty.`);
-      return;
+    if (slideType !== "data_audit_export") {
+      if (!mapping) {
+        setError("No mapping found for this slide type.");
+        return;
+      }
+
+      const slideLabel = selectedSlideDef?.label ?? "selected";
+      if (Object.keys(mapping).length === 0) {
+        setError(`The "${slideLabel}" slide type mapping is empty.`);
+        return;
+      }
     }
 
     setIsSubmitting(true);
+        try {
+      if (slideType === "data_audit_export") {
+        const auditBuf = await dataAuditFile!.arrayBuffer();
+        const auditWb = XLSX.read(auditBuf, { type: "array", cellDates: true });
 
-    try {
+        const auditSheetName = auditWb.SheetNames[0];
+        if (!auditSheetName) {
+          throw new Error("No worksheet found in Data Audit file.");
+        }
+
+        const auditSheet = auditWb.Sheets[auditSheetName];
+        if (!auditSheet) {
+          throw new Error(`Worksheet "${auditSheetName}" could not be read.`);
+        }
+
+        const auditInputRows = XLSX.utils.sheet_to_json<Record<string, any>>(
+          auditSheet,
+          { defval: "" }
+        );
+
+        const auditRun = runDataAudit(auditInputRows, "");
+
+        const flaggedWs = XLSX.utils.json_to_sheet(auditRun.exportRows);
+        const flaggedWb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(flaggedWb, flaggedWs, "Flagged Records");
+
+        XLSX.writeFile(flaggedWb, "cw_data_audit_flagged.xlsx");
+
+        setSuccessMsg(
+          "Generated! Your flagged Data Audit workbook should download automatically."
+        );
+        return;
+      }
+
       // ---- Read Excel (Risk Assessment) in-browser ----
       const excelArrayBuf = await excelFile.arrayBuffer();
       const workbook = XLSX.read(excelArrayBuf, {
@@ -757,8 +822,12 @@ export default function Page() {
       setSuccessMsg(
         "Generated! Your PPT download should start automatically. The flagged Data Audit workbook should download too for CW Risk Assessment."
       );
-    } catch (e: any) {
-      setError(e?.message || "Something went wrong generating the slides.");
+    } catch (e: unknown) {
+      const message =
+        e instanceof Error
+          ? e.message
+          : "Something went wrong generating the slides.";
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -793,8 +862,9 @@ export default function Page() {
           )}
         </div>
 
-        <div key={resetKey}>
-          <div style={styles.section}>
+        {slideType !== "data_audit_export" && (
+          <div key={resetKey}>
+            <div style={styles.section}>
             <label style={styles.label}>Template (.pptx)</label>
             <input
               ref={(el) => {
@@ -1021,7 +1091,51 @@ export default function Page() {
               </div>
             </div>
           )}
-        </div>
+          </div>
+        )}
+
+        {slideType === "data_audit_export" && (
+          <div key={resetKey}>
+            <div style={styles.section}>
+              <label style={styles.label}>Data Audit (.xlsx)</label>
+              <input
+                ref={(el) => {
+                  if (el) (window as any).dataAuditOnlyInput = el;
+                }}
+                type="file"
+                accept=".xlsx,.xls,.xlsm"
+                onChange={(e) => setDataAuditFile(e.target.files?.[0] ?? null)}
+                disabled={isSubmitting}
+                style={{ display: "none" }}
+              />
+              <button
+                type="button"
+                onClick={() => (window as any).dataAuditOnlyInput?.click()}
+                disabled={isSubmitting}
+                style={{
+                  ...styles.fileButton,
+                  background: dataAuditFile
+                    ? "rgba(34,197,94,0.12)"
+                    : "rgba(96,125,255,0.12)",
+                  border: dataAuditFile
+                    ? "2px solid rgba(34,197,94,0.5)"
+                    : "2px dashed rgba(96,125,255,0.5)",
+                }}
+              >
+                <span style={{ fontSize: 20, marginRight: 8 }}>
+                  {dataAuditFile ? "✓" : "🛡️"}
+                </span>
+                {dataAuditFile
+                  ? dataAuditFile.name
+                  : "Choose Data Audit (.xlsx)"}
+              </button>
+              <div style={styles.helperText}>
+                Runs the Data Audit rules and downloads the flagged records as an
+                .xlsx file.
+              </div>
+            </div>
+          </div>
+        )}
 
         {error && <div style={styles.error}>{error}</div>}
         {successMsg && <div style={styles.success}>{successMsg}</div>}
@@ -1035,7 +1149,11 @@ export default function Page() {
             cursor: canSubmit ? "pointer" : "not-allowed",
           }}
         >
-          {isSubmitting ? "Generating…" : "Generate & Download"}
+          {isSubmitting
+            ? "Generating…"
+            : slideType === "data_audit_export"
+            ? "Run Audit & Download"
+            : "Generate & Download"}
         </button>
 
         <button
@@ -1378,7 +1496,6 @@ const AC_LENGTH_MANUAL = new Set(["luxembourg", "poland", "spain"]);
 function normStr(v: any): string {
   return String(v ?? "").trim().toLowerCase();
 }
-
 function toBoolLike(v: any): boolean {
   const x = normStr(v);
   return ["true", "t", "yes", "y", "1"].includes(x);
