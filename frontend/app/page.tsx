@@ -811,7 +811,9 @@ export default function Page() {
       const pptxArrayBuf = await templateFile.arrayBuffer();
       const zip = await JSZip.loadAsync(pptxArrayBuf);
 
-      for (const [slideNumStr, placeholders] of Object.entries(mapping)) {
+      const resolvedMapping: SlideMapping = mapping ?? {};
+
+      for (const [slideNumStr, placeholders] of Object.entries(resolvedMapping)) {
         const slideNum = Number(slideNumStr);
         const slidePath = `ppt/slides/slide${slideNum}.xml`;
         const file = zip.file(slidePath);
