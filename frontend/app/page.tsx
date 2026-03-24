@@ -432,21 +432,28 @@ export default function Page() {
       }
     }
 
-    if (!templateFile.name.toLowerCase().endsWith(".pptx")) {
-      setError("Template must be a .pptx file.");
-      return;
-    }
+    if (slideType !== "data_audit_export") {
+      if (!templateFile || !excelFile) {
+        setError("Upload both a PPTX template and an Excel file.");
+        return;
+      }
 
-    const excelLower = excelFile.name.toLowerCase();
-    if (
-      !(
-        excelLower.endsWith(".xlsx") ||
-        excelLower.endsWith(".xls") ||
-        excelLower.endsWith(".xlsm")
-      )
-    ) {
-      setError("Excel must be a .xlsx, .xlsm, or .xls file.");
-      return;
+      if (!templateFile.name.toLowerCase().endsWith(".pptx")) {
+        setError("Template must be a .pptx file.");
+        return;
+      }
+
+      const excelLower = excelFile.name.toLowerCase();
+      if (
+        !(
+          excelLower.endsWith(".xlsx") ||
+          excelLower.endsWith(".xls") ||
+          excelLower.endsWith(".xlsm")
+        )
+      ) {
+        setError("Excel must be a .xlsx, .xlsm, or .xls file.");
+        return;
+      }
     }
 
     if (slideType === "cw_risk_assessment") {
@@ -497,7 +504,8 @@ export default function Page() {
     }
 
     setIsSubmitting(true);
-        try {
+
+    try {
       if (slideType === "data_audit_export") {
         const auditBuf = await dataAuditFile!.arrayBuffer();
         const auditWb = XLSX.read(auditBuf, { type: "array", cellDates: true });
@@ -532,6 +540,9 @@ export default function Page() {
       }
 
       // ---- Read Excel (Risk Assessment) in-browser ----
+      if (!excelFile) {
+        throw new Error("Excel file is missing.");
+      }
       const excelArrayBuf = await excelFile.arrayBuffer();
       const workbook = XLSX.read(excelArrayBuf, {
         type: "array",
@@ -794,6 +805,9 @@ export default function Page() {
       }
 
       // ---- Read PPTX (zip) in-browser ----
+      if (!templateFile) {
+        throw new Error("Template file is missing.");
+      }
       const pptxArrayBuf = await templateFile.arrayBuffer();
       const zip = await JSZip.loadAsync(pptxArrayBuf);
 
@@ -1496,6 +1510,7 @@ const AC_LENGTH_MANUAL = new Set(["luxembourg", "poland", "spain"]);
 function normStr(v: any): string {
   return String(v ?? "").trim().toLowerCase();
 }
+
 function toBoolLike(v: any): boolean {
   const x = normStr(v);
   return ["true", "t", "yes", "y", "1"].includes(x);
