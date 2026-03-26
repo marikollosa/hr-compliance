@@ -852,7 +852,7 @@ export default function Page() {
   return (
     <main style={styles.page}>
       <div style={styles.card}>
-        <h1 style={styles.h1}>Slide Automation</h1>
+        <h1 style={styles.h1}>HR Compliance</h1>
         <p style={styles.sub}>
           Select a slide type, upload a PPTX template + Excel data, and generate
           a filled deck.
