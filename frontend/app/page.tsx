@@ -1510,8 +1510,6 @@ const AC_LENGTH_MANUAL = new Set([
   "turkey",
 ]);
 
-const AC_LENGTH_MANUAL = new Set(["luxembourg", "poland", "spain"]);
-
 function normStr(v: any): string {
   return String(v ?? "").trim().toLowerCase();
 }
@@ -1636,6 +1634,7 @@ function runDataAudit(
   _reasons: [],
   _severity: "",
 };
+  });
 
 for (const row of workingRows) {
   const country = row._country;
