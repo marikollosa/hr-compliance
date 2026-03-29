@@ -268,7 +268,8 @@ type AuditSeverity = "" | "MANUAL_REVIEW" | "ERROR";
 
 type AuditWorkingRow = Record<string, any> & {
   _country: string;
-  _supplier: string;
+  _supplier_ac: string;
+  _supplier_ad: string;
   _jobtitle: string;
   _cw_type: string;
   _begin: Date | null;
@@ -1449,8 +1450,9 @@ function pivot(rows: RawRow[]) {
 
 const COL_COUNTRY = "Work Location Country Desc";
 const COL_CWTYPE = "CW TYPE";
-const COL_SUPPLIER = "Provider Desc";
 const COL_JOBTITLE = "Contingent Job Title";
+const COL_SUPPLIER_AC = "Provider ID";
+const COL_SUPPLIER_AD = "Provider Desc";
 const COL_BEGIN = "Contract Begin Date";
 const COL_END = "Contract Expected End Date";
 const COL_AGE = "Age";
@@ -1462,19 +1464,8 @@ const SEV_ORDER: Record<AuditSeverity, number> = {
   ERROR: 2,
 };
 
-const SPECIALIZED_SUPPLIERS_MEXICO = new Set([
-  "adecco",
-  "randstad",
-  "manpower",
-  "kelly",
-  "allegis",
-  "tapfin",
-  "guidant",
-  "magnit",
-  "pontoon",
-]);
+const SUPPLIER_FUZZY_NOT_ALLOWED = ["iss", "securitas"];
 
-const SUPPLIER_AC_NOT_ALLOWED = new Set(["iss", "securitas"]);
 const AC_ANY_COUNTRIES = new Set([
   "costa rica",
   "chile",
@@ -1484,28 +1475,40 @@ const AC_ANY_COUNTRIES = new Set([
   "thailand",
 ]);
 
+const AC_ANY_MANUAL_COUNTRIES = new Set([
+  "spain",
+  "korea",
+]);
+
 const AC_LENGTH_THRESHOLDS: Record<string, string> = {
   argentina: ">12 months",
   brazil: ">270 days",
   colombia: ">12 months",
-  france: ">18 months",
+  peru: ">12 months",
+  belgium: ">12 months",
   germany: ">18 months",
-  india: ">12 months",
-  ireland: ">12 months",
-  israel: ">9 months",
-  korea: ">24 months",
-  luxembourg: ">12 months",
-  malaysia: ">12 months",
-  netherlands: ">12 months",
+  greece: ">36 months",
+  hungary: ">60 months",
+  italy: ">24 months",
+  norway: ">48 months",
+  portugal: ">24 months",
+  slovakia: ">24 months",
+  "south africa": ">24 months",
+  china: ">72 months",
   philippines: ">5 months",
-  poland: ">18 months",
-  portugal: ">12 months",
-  singapore: ">12 months",
-  spain: ">12 months",
-  taiwan: ">12 months",
-  "united kingdom": ">24 months",
   vietnam: ">12 months",
+  israel: ">9 months",
+  luxembourg: ">12 months",
+  poland: ">18 months",
+  turkey: ">24 months",
 };
+
+const AC_LENGTH_MANUAL = new Set([
+  "israel",
+  "luxembourg",
+  "poland",
+  "turkey",
+]);
 
 const AC_LENGTH_MANUAL = new Set(["luxembourg", "poland", "spain"]);
 
@@ -1516,6 +1519,11 @@ function normStr(v: any): string {
 function toBoolLike(v: any): boolean {
   const x = normStr(v);
   return ["true", "t", "yes", "y", "1"].includes(x);
+}
+
+function containsFuzzy(value: unknown, keywords: string[]): boolean {
+  const v = normStr(value);
+  return keywords.some((k) => v.includes(k));
 }
 
 function normalizeCwType(v: any): string {
@@ -1572,13 +1580,14 @@ function addAuditReason(
 
 function ensureAuditRequiredColumns(rows: Record<string, any>[]) {
   const required = [
-    COL_COUNTRY,
-    COL_CWTYPE,
-    COL_SUPPLIER,
-    COL_JOBTITLE,
-    COL_BEGIN,
-    COL_END,
-  ];
+  COL_COUNTRY,
+  COL_CWTYPE,
+  COL_JOBTITLE,
+  COL_SUPPLIER_AC,
+  COL_SUPPLIER_AD,
+  COL_BEGIN,
+  COL_END,
+];
 
   if (!rows.length) {
     throw new Error("Data Audit workbook is empty.");
@@ -1612,166 +1621,111 @@ function runDataAudit(
         : Number(ageRaw);
 
     return {
-      ...r,
-      _country: normStr(r[COL_COUNTRY]),
-      _supplier: normStr(r[COL_SUPPLIER]),
-      _jobtitle: normStr(r[COL_JOBTITLE]),
-      _cw_type: normalizeCwType(r[COL_CWTYPE]),
-      _begin: begin,
-      _end: end,
-      _duration_days: durationDays,
-      _duration_months: durationDays == null ? null : durationDays / 30.4375,
-      _age: ageVal,
-      _loa_replacement: toBoolLike(r[COL_LOA_FLAG]),
-      _reasons: [],
-      _severity: "",
-    };
-  });
+  ...r,
+  _country: normStr(r[COL_COUNTRY]),
+  _supplier_ac: normStr(r[COL_SUPPLIER_AC]),
+  _supplier_ad: normStr(r[COL_SUPPLIER_AD]),
+  _jobtitle: normStr(r[COL_JOBTITLE]),
+  _cw_type: normalizeCwType(r[COL_CWTYPE]),
+  _begin: begin,
+  _end: end,
+  _duration_days: durationDays,
+  _duration_months: durationDays == null ? null : durationDays / 30.4375,
+  _age: ageVal,
+  _loa_replacement: toBoolLike(r[COL_LOA_FLAG]),
+  _reasons: [],
+  _severity: "",
+};
 
-  for (const row of workingRows) {
-    const country = row._country;
-    const cwType = row._cw_type;
-    const supplier = row._supplier;
-    const jobTitle = row._jobtitle;
-    const durationDays = row._duration_days;
+for (const row of workingRows) {
+  const country = row._country;
+  const cwType = row._cw_type;
+  const supplierAC = row._supplier_ac;
+  const supplierAD = row._supplier_ad;
+  const jobTitle = row._jobtitle;
+  const durationDays = row._duration_days;
 
-    if (row._begin && row._end && durationDays != null && durationDays < 0) {
+  if (row._begin && row._end && durationDays != null && durationDays < 0) {
+    addAuditReason(
+      row,
+      "Date rule: Contract Expected End Date is earlier than Contract Begin Date",
+      "ERROR"
+    );
+  }
+
+  // Mexico rules
+  if (country === "mexico" && cwType === "AC") {
+    addAuditReason(row, "Mexico: AC not allowed", "ERROR");
+  }
+
+  if (country === "mexico" && cwType === "OSC") {
+    addAuditReason(row, "Mexico: OSC not allowed", "ERROR");
+  }
+
+  if (country === "mexico" && cwType === "MEXICO SPECIALIZED SUPPLIERS") {
+    addAuditReason(
+      row,
+      "Mexico: Mexico Specialized Suppliers not allowed",
+      "ERROR"
+    );
+  }
+
+  // Country-wide AC bans
+  if (AC_ANY_COUNTRIES.has(country) && cwType === "AC") {
+    addAuditReason(row, "Country policy: AC not allowed", "ERROR");
+  }
+
+  // Country-wide AC manual review
+  if (AC_ANY_MANUAL_COUNTRIES.has(country) && cwType === "AC") {
+    addAuditReason(
+      row,
+      "Country policy: AC requires manual review",
+      "MANUAL_REVIEW"
+    );
+  }
+
+  // Duration-based AC rules
+  const thresholdText = AC_LENGTH_THRESHOLDS[country];
+  if (cwType === "AC" && thresholdText && durationDays != null) {
+    const limitDays = parseThresholdToDays(thresholdText);
+
+    if (limitDays != null && durationDays > limitDays) {
+      const sev: AuditSeverity = AC_LENGTH_MANUAL.has(country)
+        ? "MANUAL_REVIEW"
+        : "ERROR";
+
       addAuditReason(
         row,
-        "Date rule: Contract Expected End Date is earlier than Contract Begin Date",
-        "ERROR"
-      );
-    }
-
-    if (country === "mexico" && cwType === "AC") {
-      addAuditReason(row, "Mexico: AC not allowed", "ERROR");
-    }
-
-    if (country === "mexico" && cwType === "OSC") {
-      addAuditReason(row, "Mexico: OSC not allowed", "ERROR");
-    }
-
-    if (
-      country === "mexico" &&
-      supplier &&
-      SPECIALIZED_SUPPLIERS_MEXICO.has(supplier)
-    ) {
-      addAuditReason(
-        row,
-        "Mexico: specialized supplier requires manual validation",
-        "MANUAL_REVIEW"
-      );
-    }
-
-    if (AC_ANY_COUNTRIES.has(country) && cwType === "AC") {
-      addAuditReason(row, "Country policy: AC not allowed", "ERROR");
-    }
-
-    const thresholdText = AC_LENGTH_THRESHOLDS[country];
-    if (cwType === "AC" && thresholdText && durationDays != null) {
-      const limitDays = parseThresholdToDays(thresholdText);
-      if (limitDays != null && durationDays > limitDays) {
-        const sev: AuditSeverity = AC_LENGTH_MANUAL.has(country)
-          ? "MANUAL_REVIEW"
-          : "ERROR";
-        addAuditReason(
-          row,
-          `Length rule: AC exceeds ${thresholdText.replace(/^>/, "").trim()}`,
-          sev
-        );
-      }
-    }
-
-    if (country === "korea" && cwType === "AC" && durationDays != null) {
-      const koreaLimit = parseThresholdToDays(">24 months") ?? 730.5;
-      if (durationDays > koreaLimit) {
-        if (row._age == null) {
-          addAuditReason(
-            row,
-            "Korea: exceeds 24 months; Age missing (55+ exception may apply)",
-            "MANUAL_REVIEW"
-          );
-        } else if (row._age <= 55) {
-          addAuditReason(row, "Korea: AC exceeds 24 months", "ERROR");
-        }
-      }
-    }
-
-    if (country === "israel" && cwType === "AC" && durationDays != null) {
-      const israelLimit = parseThresholdToDays(">9 months") ?? 273.9375;
-      if (durationDays > israelLimit) {
-        if (jobTitle.includes("non-comput")) {
-          addAuditReason(
-            row,
-            "Israel: non-computing role exceeds 9 months",
-            "ERROR"
-          );
-        } else {
-          addAuditReason(
-            row,
-            "Israel: AC exceeds 9 months; verify computing-role exception",
-            "MANUAL_REVIEW"
-          );
-        }
-      }
-    }
-
-    if (country === "china" && durationDays != null) {
-      const chinaLimit = parseThresholdToDays(">72 months") ?? 2191.5;
-      if (durationDays > chinaLimit) {
-        addAuditReason(
-          row,
-          "China: length >72 months exceeds policy",
-          "ERROR"
-        );
-      }
-    }
-
-    if (country === "turkey" && durationDays != null) {
-      const turkeyLimit = parseThresholdToDays(">24 months") ?? 730.5;
-      if (durationDays > turkeyLimit) {
-        if (COL_LOA_FLAG in row) {
-          if (!row._loa_replacement) {
-            addAuditReason(
-              row,
-              "Turkey: exceeds 24 months; verify LOA replacement exception",
-              "MANUAL_REVIEW"
-            );
-          }
-        } else {
-          addAuditReason(
-            row,
-            "Turkey: exceeds 24 months; LOA Replacement column missing",
-            "MANUAL_REVIEW"
-          );
-        }
-      }
-    }
-
-    if (country === "tunisia") {
-      addAuditReason(
-        row,
-        "Tunisia: table indicates review for all records (verify intended rule)",
-        "MANUAL_REVIEW"
-      );
-    }
-
-    if (jobTitle === "assistant" && cwType === "OSC") {
-      addAuditReason(
-        row,
-        "Job Title rule: Assistant should not be OSC",
-        "ERROR"
-      );
-    }
-
-    if (SUPPLIER_AC_NOT_ALLOWED.has(supplier) && cwType === "AC") {
-      addAuditReason(
-        row,
-        `Supplier rule: ${String(row[COL_SUPPLIER] ?? "").trim()} should not be AC`,
-        "ERROR"
+        `${String(row[COL_COUNTRY] ?? "").trim()}: AC exceeds ${thresholdText
+          .replace(/^>/, "")
+          .trim()}`,
+        sev
       );
     }
   }
+
+  // Job title rule
+  if (cwType === "OSC" && containsFuzzy(jobTitle, ["assistant"])) {
+    addAuditReason(
+      row,
+      "Job title restriction: Assistant not allowed for OSC",
+      "ERROR"
+    );
+  }
+
+  // Supplier rule using columns AC + AD
+  const restrictedSupplier =
+    containsFuzzy(supplierAC, SUPPLIER_FUZZY_NOT_ALLOWED) ||
+    containsFuzzy(supplierAD, SUPPLIER_FUZZY_NOT_ALLOWED);
+
+  if (cwType === "AC" && restrictedSupplier) {
+    addAuditReason(
+      row,
+      "Supplier restriction: ISS / Securitas not allowed for AC",
+      "ERROR"
+    );
+  }
+}
 
   const flaggedRows = workingRows.filter((r) => r._reasons.length > 0);
 
