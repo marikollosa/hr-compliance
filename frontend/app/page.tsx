@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import * as XLSX from "xlsx";
 
@@ -314,6 +314,45 @@ export default function Page() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const [resetKey, setResetKey] = useState(0);
+
+  const templateInputRef = useRef<HTMLInputElement | null>(null);
+  const excelInputRef = useRef<HTMLInputElement | null>(null);
+  const rawInputRef = useRef<HTMLInputElement | null>(null);
+  const dataAuditInputRef = useRef<HTMLInputElement | null>(null);
+  const exceptionsInputRef = useRef<HTMLInputElement | null>(null);
+  const dataAuditOnlyInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    setError(null);
+    setSuccessMsg(null);
+
+    if (slideType === "data_audit_export") {
+      setTemplateFile(null);
+      setExcelFile(null);
+      setRawDataFile(null);
+      setExceptionsFile(null);
+      setExceptionsQuarter("");
+      setExceptionsCountry("");
+      setCwCountry("");
+      setCwDash(null);
+      if (templateInputRef.current) templateInputRef.current.value = "";
+      if (excelInputRef.current) excelInputRef.current.value = "";
+      if (rawInputRef.current) rawInputRef.current.value = "";
+      if (exceptionsInputRef.current) exceptionsInputRef.current.value = "";
+    } else if (slideType !== "cw_risk_assessment") {
+      setRawDataFile(null);
+      setDataAuditFile(null);
+      setExceptionsFile(null);
+      setExceptionsQuarter("");
+      setExceptionsCountry("");
+      setCwCountry("");
+      setCwDash(null);
+      if (rawInputRef.current) rawInputRef.current.value = "";
+      if (dataAuditInputRef.current) dataAuditInputRef.current.value = "";
+      if (dataAuditOnlyInputRef.current) dataAuditOnlyInputRef.current.value = "";
+      if (exceptionsInputRef.current) exceptionsInputRef.current.value = "";
+    }
+  }, [slideType]);
 
   const selectedSlideDef = useMemo(
     () => SLIDE_DEFS.find((s) => s.id === slideType),
@@ -884,18 +923,18 @@ export default function Page() {
             <div style={styles.section}>
             <label style={styles.label}>Template (.pptx)</label>
             <input
-              ref={(el) => {
-                if (el) (window as any).templateInput = el;
-              }}
+              ref={templateInputRef}
               type="file"
               accept=".pptx"
               onChange={(e) => setTemplateFile(e.target.files?.[0] ?? null)}
               disabled={isSubmitting}
-              style={{ display: "none" }}
+              style={styles.visuallyHiddenFile}
+              tabIndex={-1}
+              aria-hidden={true}
             />
             <button
               type="button"
-              onClick={() => (window as any).templateInput?.click()}
+              onClick={() => templateInputRef.current?.click()}
               disabled={isSubmitting}
               style={{
                 ...styles.fileButton,
@@ -917,18 +956,18 @@ export default function Page() {
           <div style={styles.section}>
             <label style={styles.label}>Data (.xlsx)</label>
             <input
-              ref={(el) => {
-                if (el) (window as any).excelInput = el;
-              }}
+              ref={excelInputRef}
               type="file"
               accept=".xlsx,.xls,.xlsm"
               onChange={(e) => setExcelFile(e.target.files?.[0] ?? null)}
               disabled={isSubmitting}
-              style={{ display: "none" }}
+              style={styles.visuallyHiddenFile}
+              tabIndex={-1}
+              aria-hidden={true}
             />
             <button
               type="button"
-              onClick={() => (window as any).excelInput?.click()}
+              onClick={() => excelInputRef.current?.click()}
               disabled={isSubmitting}
               style={{
                 ...styles.fileButton,
@@ -951,18 +990,18 @@ export default function Page() {
             <div style={styles.section}>
               <label style={styles.label}>Raw Data (.xlsx)</label>
               <input
-                ref={(el) => {
-                  if (el) (window as any).rawInput = el;
-                }}
+                ref={rawInputRef}
                 type="file"
                 accept=".xlsx,.xls,.xlsm"
                 onChange={(e) => setRawDataFile(e.target.files?.[0] ?? null)}
                 disabled={isSubmitting}
-                style={{ display: "none" }}
+                style={styles.visuallyHiddenFile}
+                tabIndex={-1}
+                aria-hidden={true}
               />
               <button
                 type="button"
-                onClick={() => (window as any).rawInput?.click()}
+                onClick={() => rawInputRef.current?.click()}
                 disabled={isSubmitting}
                 style={{
                   ...styles.fileButton,
@@ -1003,20 +1042,20 @@ export default function Page() {
               <div style={{ marginTop: 18 }}>
                 <label style={styles.label}>Data Audit (.xlsx)</label>
                 <input
-                  ref={(el) => {
-                    if (el) (window as any).dataAuditInput = el;
-                  }}
+                  ref={dataAuditInputRef}
                   type="file"
                   accept=".xlsx,.xls,.xlsm"
                   onChange={(e) =>
                     setDataAuditFile(e.target.files?.[0] ?? null)
                   }
                   disabled={isSubmitting}
-                  style={{ display: "none" }}
+                  style={styles.visuallyHiddenFile}
+                  tabIndex={-1}
+                  aria-hidden={true}
                 />
                 <button
                   type="button"
-                  onClick={() => (window as any).dataAuditInput?.click()}
+                  onClick={() => dataAuditInputRef.current?.click()}
                   disabled={isSubmitting}
                   style={{
                     ...styles.fileButton,
@@ -1044,20 +1083,20 @@ export default function Page() {
               <div style={{ marginTop: 18 }}>
                 <label style={styles.label}>Exceptions (.csv)</label>
                 <input
-                  ref={(el) => {
-                    if (el) (window as any).exceptionsInput = el;
-                  }}
+                  ref={exceptionsInputRef}
                   type="file"
                   accept=".csv"
                   onChange={(e) =>
                     setExceptionsFile(e.target.files?.[0] ?? null)
                   }
                   disabled={isSubmitting}
-                  style={{ display: "none" }}
+                  style={styles.visuallyHiddenFile}
+                  tabIndex={-1}
+                  aria-hidden={true}
                 />
                 <button
                   type="button"
-                  onClick={() => (window as any).exceptionsInput?.click()}
+                  onClick={() => exceptionsInputRef.current?.click()}
                   disabled={isSubmitting}
                   style={{
                     ...styles.fileButton,
@@ -1116,18 +1155,18 @@ export default function Page() {
             <div style={styles.section}>
               <label style={styles.label}>Data Audit (.xlsx)</label>
               <input
-                ref={(el) => {
-                  if (el) (window as any).dataAuditOnlyInput = el;
-                }}
+                ref={dataAuditOnlyInputRef}
                 type="file"
                 accept=".xlsx,.xls,.xlsm"
                 onChange={(e) => setDataAuditFile(e.target.files?.[0] ?? null)}
                 disabled={isSubmitting}
-                style={{ display: "none" }}
+                style={styles.visuallyHiddenFile}
+                tabIndex={-1}
+                aria-hidden={true}
               />
               <button
                 type="button"
-                onClick={() => (window as any).dataAuditOnlyInput?.click()}
+                onClick={() => dataAuditOnlyInputRef.current?.click()}
                 disabled={isSubmitting}
                 style={{
                   ...styles.fileButton,
@@ -1919,6 +1958,20 @@ function parseCsvToRows(text: string): string[][] {
 }
 
 const styles: Record<string, React.CSSProperties> = {
+  visuallyHiddenFile: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: 1,
+    height: 1,
+    padding: 0,
+    margin: 0,
+    overflow: "hidden",
+    clipPath: "inset(50%)",
+    whiteSpace: "nowrap",
+    border: 0,
+    opacity: 0,
+  },
   page: {
     minHeight: "100vh",
     display: "grid",
@@ -1944,7 +1997,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#b8b8c7",
     lineHeight: 1.4,
   },
-  section: { marginBottom: 16 },
+  section: { marginBottom: 16, position: "relative" },
   label: { display: "block", marginBottom: 8, fontWeight: 600 },
   helperText: {
     marginTop: 8,
