@@ -1121,7 +1121,7 @@ export default function Page() {
                   <input
                     value={exceptionsQuarter}
                     onChange={(e) => setExceptionsQuarter(e.target.value)}
-                    placeholder='e.g., "Q1 FY26"'
+                    placeholder='e.g., "FY26Q1"'
                     disabled={isSubmitting}
                     style={styles.textInput}
                   />
