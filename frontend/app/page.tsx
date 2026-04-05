@@ -152,7 +152,7 @@ const NEW_TOOLS_MAPPING: SlideMapping = {
 
 const CW_RISK_ASSESSMENT_MAPPING: SlideMapping = {
   1: {
-    "[1]": { type: "cell", ref: "G2" },
+    "[1]": { type: "cell", ref: "J2" },
     "[2]": { type: "month_year", ref: "B2", format: "Mon YYYY" },
   },
   3: {
