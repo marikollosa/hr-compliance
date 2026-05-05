@@ -856,6 +856,8 @@ export default function Page() {
       const resolvedMapping: SlideMapping = mapping ?? {};
       const slidePathsByDeckOrder = await resolvePresentationSlidePaths(zip);
 
+      const missingPlaceholders: string[] = [];
+
       for (const [slideNumStr, placeholders] of Object.entries(resolvedMapping)) {
         const slideNum = Number(slideNumStr);
         const slidePath =
@@ -871,10 +873,23 @@ export default function Page() {
 
         for (const [needle, spec] of Object.entries(placeholders)) {
           const value = escapeXml(resolveSpec(spec));
+          if (!xml.includes(needle)) {
+            missingPlaceholders.push(`slide ${slideNum}: ${needle}`);
+            continue;
+          }
           xml = xml.split(needle).join(value);
         }
 
         zip.file(slidePath, xml);
+      }
+
+      if (missingPlaceholders.length > 0) {
+        throw new Error(
+          `Template placeholders were not found for ${missingPlaceholders
+            .slice(0, 12)
+            .join(", ")}${missingPlaceholders.length > 12 ? ", ..." : ""}. ` +
+            "Use a clean template with placeholder tokens (not a previously generated deck)."
+        );
       }
 
       const outArrayBuffer = await zip.generateAsync({ type: "arraybuffer" });
