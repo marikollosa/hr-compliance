@@ -166,25 +166,25 @@ const CW_RISK_ASSESSMENT_MAPPING: SlideMapping = {
     "[2]": { type: "data_audit_summary" },
   },
   5: {
-    "[A1]": { type: "cell", ref: "H2" },
-    "[B1]": { type: "cell", ref: "H3" },
-    "[C1]": { type: "cell", ref: "H4" },
-    "[D1]": { type: "cell", ref: "H5" },
+    "[A1]": { type: "cell", ref: "K2" },
+    "[A2]": { type: "cell", ref: "L2" },
+    "[A3]": { type: "cell", ref: "M2" },
+    "[A4]": { type: "cell", ref: "N2" },
 
-    "[A2]": { type: "cell", ref: "I2" },
-    "[B2]": { type: "cell", ref: "I3" },
-    "[C2]": { type: "cell", ref: "I4" },
-    "[D2]": { type: "cell", ref: "I5" },
+    "[B1]": { type: "cell", ref: "K3" },
+    "[B2]": { type: "cell", ref: "L3" },
+    "[B3]": { type: "cell", ref: "M3" },
+    "[B4]": { type: "cell", ref: "N3" },
 
-    "[A3]": { type: "cell", ref: "J2" },
-    "[B3]": { type: "cell", ref: "J3" },
-    "[C3]": { type: "cell", ref: "J4" },
-    "[D3]": { type: "cell", ref: "J5" },
+    "[C1]": { type: "cell", ref: "K4" },
+    "[C2]": { type: "cell", ref: "L4" },
+    "[C3]": { type: "cell", ref: "M4" },
+    "[C4]": { type: "cell", ref: "N4" },
 
-    "[A4]": { type: "cell", ref: "K2" },
-    "[B4]": { type: "cell", ref: "K3" },
-    "[C4]": { type: "cell", ref: "K4" },
-    "[D4]": { type: "cell", ref: "K5" },
+    "[D1]": { type: "cell", ref: "K5" },
+    "[D2]": { type: "cell", ref: "L5" },
+    "[D3]": { type: "cell", ref: "M5" },
+    "[D4]": { type: "cell", ref: "N5" },
   },
   6: {
     "[A1]": { type: "cell", ref: "L2" },
@@ -854,10 +854,16 @@ export default function Page() {
       const zip = await JSZip.loadAsync(pptxArrayBuf);
 
       const resolvedMapping: SlideMapping = mapping ?? {};
+      const slidePathsByDeckOrder = await resolvePresentationSlidePaths(zip);
 
       for (const [slideNumStr, placeholders] of Object.entries(resolvedMapping)) {
         const slideNum = Number(slideNumStr);
-        const slidePath = `ppt/slides/slide${slideNum}.xml`;
+        const slidePath =
+          slidePathsByDeckOrder.length > 0
+            ? slidePathsByDeckOrder[slideNum - 1]
+            : `ppt/slides/slide${slideNum}.xml`;
+        if (!slidePath) continue;
+
         const file = zip.file(slidePath);
         if (!file) continue;
 
@@ -1878,6 +1884,74 @@ function renderPieChartToCanvas(
     ctx.fillStyle = "#111827";
     ctx.fillText(`${labels[i]} — ${pct}% (${Math.round(values[i])})`, 440, y);
     y += 24;
+  }
+}
+
+/**
+ * Deck order → zip path for each slide (e.g. after insert/reorder, slide 5 may be
+ * ppt/slides/slide7.xml). Mapping keys are 1-based indices in the user's deck.
+ */
+function resolvePresentationSlidePathsSync(
+  presentationXml: string,
+  relsXml: string
+): string[] {
+  const relIdToTarget = new Map<string, string>();
+  const relsDoc = new DOMParser().parseFromString(relsXml, "application/xml");
+  const relEls = relsDoc.getElementsByTagName("Relationship");
+  for (let i = 0; i < relEls.length; i++) {
+    const el = relEls[i];
+    const id = el.getAttribute("Id");
+    const target = el.getAttribute("Target");
+    const mode = el.getAttribute("TargetMode");
+    if (!id || !target || mode === "External") continue;
+    relIdToTarget.set(id, target);
+  }
+
+  const presDoc = new DOMParser().parseFromString(
+    presentationXml,
+    "application/xml"
+  );
+  const NS_P =
+    "http://schemas.openxmlformats.org/presentationml/2006/main";
+  const sldIdLst = presDoc.getElementsByTagNameNS(NS_P, "sldIdLst")[0];
+  if (!sldIdLst) return [];
+
+  let sldIds = sldIdLst.getElementsByTagNameNS(NS_P, "sldId");
+  const sldIdArr =
+    sldIds.length > 0
+      ? Array.from(sldIds)
+      : Array.from(sldIdLst.getElementsByTagName("sldId"));
+
+  const out: string[] = [];
+  for (const node of sldIdArr) {
+    const rid =
+      node.getAttribute("r:id") ??
+      node.getAttributeNS(
+        "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+        "id"
+      );
+    if (!rid) continue;
+    const target = relIdToTarget.get(rid);
+    if (!target) continue;
+
+    let t = target.replace(/^\.\//, "").replace(/^\.\.\//, "");
+    if (t.startsWith("/")) t = t.slice(1);
+    const fullPath = t.startsWith("ppt/") ? t : `ppt/${t}`;
+    out.push(fullPath);
+  }
+  return out;
+}
+
+async function resolvePresentationSlidePaths(zip: JSZip): Promise<string[]> {
+  const presFile = zip.file("ppt/presentation.xml");
+  const relsFile = zip.file("ppt/_rels/presentation.xml.rels");
+  if (!presFile || !relsFile) return [];
+  try {
+    const presentationXml = await presFile.async("string");
+    const relsXml = await relsFile.async("string");
+    return resolvePresentationSlidePathsSync(presentationXml, relsXml);
+  } catch {
+    return [];
   }
 }
 
