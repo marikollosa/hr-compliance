@@ -160,10 +160,12 @@ const CW_RISK_ASSESSMENT_MAPPING: SlideMapping = {
     "[2]": { type: "cell", ref: "K3" },
     "[3]": { type: "cell", ref: "K4" },
     "[4]": { type: "cell", ref: "K5" },
-    "[5]": { type: "exceptions_summary" },
-    "[6]": { type: "data_audit_summary" },
   },
   4: {
+    "[1]": { type: "exceptions_summary" },
+    "[2]": { type: "data_audit_summary" },
+  },
+  5: {
     "[A1]": { type: "cell", ref: "H2" },
     "[B1]": { type: "cell", ref: "H3" },
     "[C1]": { type: "cell", ref: "H4" },
@@ -184,7 +186,7 @@ const CW_RISK_ASSESSMENT_MAPPING: SlideMapping = {
     "[C4]": { type: "cell", ref: "K4" },
     "[D4]": { type: "cell", ref: "K5" },
   },
-  5: {
+  6: {
     "[A1]": { type: "cell", ref: "L2" },
     "[B1]": { type: "cell", ref: "L3" },
     "[C1]": { type: "cell", ref: "L4" },
