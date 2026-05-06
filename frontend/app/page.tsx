@@ -459,9 +459,25 @@ export default function Page() {
         return;
       }
 
-      const q = exceptionsQuarter.trim();
-      if (!q) {
-        setError("For CW Risk Assessment, enter a quarter for Exceptions (matches Column D).");
+      const qRaw = exceptionsQuarter.trim();
+      if (!qRaw) {
+        setError(
+          "For CW Risk Assessment, enter at least one quarter for Exceptions (matches Column D)."
+        );
+        return;
+      }
+      const parsedQuarters = qRaw
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+      if (parsedQuarters.length > 4) {
+        setError("For CW Risk Assessment, enter up to 4 quarters for Exceptions.");
+        return;
+      }
+      if (parsedQuarters.length === 0) {
+        setError(
+          "For CW Risk Assessment, enter at least one valid quarter for Exceptions (matches Column D)."
+        );
         return;
       }
 
@@ -699,13 +715,17 @@ export default function Page() {
         );
         const hasHeader = dataRows.length > 0;
 
-        const qNeedle = exceptionsQuarter.trim().toLowerCase();
+        const quarterValues = exceptionsQuarter
+          .split(",")
+          .map((x) => x.trim().toLowerCase())
+          .filter(Boolean);
+        const quarterNeedles = new Set(quarterValues);
         const cNeedle = exceptionsCountry.trim().toLowerCase();
 
         const matches = (hasHeader ? dataRows.slice(1) : dataRows).filter((r) => {
           const q = String(r?.[3] ?? "").trim().toLowerCase();
           const c = String(r?.[5] ?? "").trim().toLowerCase();
-          return q === qNeedle && c === cNeedle;
+          return quarterNeedles.has(q) && c === cNeedle;
         });
 
         const num = matches.length;
@@ -1138,16 +1158,17 @@ export default function Page() {
                 </button>
 
                 <div style={{ marginTop: 14 }}>
-                  <label style={styles.label}>Exceptions quarter (Column D)</label>
+                  <label style={styles.label}>Exceptions quarter(s) (Column D)</label>
                   <input
                     value={exceptionsQuarter}
                     onChange={(e) => setExceptionsQuarter(e.target.value)}
-                    placeholder='e.g., "FY26Q1"'
+                    placeholder='e.g., "FY25Q1, FY25Q2, FY25Q3, FY25Q4"'
                     disabled={isSubmitting}
                     style={styles.textInput}
                   />
                   <div style={styles.helperText}>
-                    Matches Exceptions Column D exactly (after trimming).
+                    Enter 1 to 4 comma-separated values. Each one must match
+                    Exceptions Column D exactly (after trimming).
                   </div>
                 </div>
 
