@@ -439,7 +439,7 @@ export default function Page() {
 
     if (slideType === "cw_risk_assessment") {
       if (!rawDataFile) {
-        setError("For CW Risk Assessment, upload the Raw Data (.xlsx) file too.");
+        setError("For CW Risk Assessment, upload the Dashboard Data (.xlsx) file too.");
         return;
       }
       if (!dataAuditFile) {
@@ -454,7 +454,7 @@ export default function Page() {
       const c = cwCountry.trim();
       if (!c) {
         setError(
-          'For CW Risk Assessment, enter a country to filter Raw Data by (Column I: "Work Location Country Desc").'
+          'For CW Risk Assessment, enter a country to filter Dashboard Data by (Column I: "Work Location Country Desc").'
         );
         return;
       }
@@ -521,7 +521,7 @@ export default function Page() {
           rawLower.endsWith(".xlsm")
         )
       ) {
-        setError("Raw Data must be a .xlsx, .xlsm, or .xls file.");
+        setError("Dashboard Data must be a .xlsx, .xlsm, or .xls file.");
         return;
       }
 
@@ -803,7 +803,7 @@ export default function Page() {
         const rawWb = XLSX.read(rawBuf, { type: "array", cellDates: true });
 
         const rawSheetName = rawWb.SheetNames[0];
-        if (!rawSheetName) throw new Error("No worksheet found in Raw Data file.");
+        if (!rawSheetName) throw new Error("No worksheet found in Dashboard Data file.");
 
         const rawSheet = rawWb.Sheets[rawSheetName];
         if (!rawSheet) throw new Error(`Worksheet "${rawSheetName}" could not be read.`);
@@ -819,7 +819,7 @@ export default function Page() {
 
         if (rows.length === 0) {
           setError(
-            `No Raw Data rows matched country "${cwCountry.trim()}" in Column I (Work Location Country Desc).`
+            `No Dashboard Data rows matched country "${cwCountry.trim()}" in Column I (Work Location Country Desc).`
           );
           setIsSubmitting(false);
           return;
@@ -995,7 +995,7 @@ export default function Page() {
           </div>
 
           <div style={styles.section}>
-            <label style={styles.label}>Data (.xlsx)</label>
+            <label style={styles.label}>Forms Responses (.xlsx)</label>
             <input
               ref={excelInputRef}
               type="file"
@@ -1023,13 +1023,13 @@ export default function Page() {
               <span style={{ fontSize: 20, marginRight: 8 }}>
                 {excelFile ? "✓" : "📊"}
               </span>
-              {excelFile ? excelFile.name : "Choose Data (.xlsx)"}
+              {excelFile ? excelFile.name : "Choose Forms Responses (.xlsx)"}
             </button>
           </div>
 
           {slideType === "cw_risk_assessment" && (
             <div style={styles.section}>
-              <label style={styles.label}>Raw Data (.xlsx)</label>
+              <label style={styles.label}>Dashboard Data (.xlsx)</label>
               <input
                 ref={rawInputRef}
                 type="file"
@@ -1057,7 +1057,7 @@ export default function Page() {
                 <span style={{ fontSize: 20, marginRight: 8 }}>
                   {rawDataFile ? "✓" : "🧾"}
                 </span>
-                {rawDataFile ? rawDataFile.name : "Choose Raw Data (.xlsx)"}
+                {rawDataFile ? rawDataFile.name : "Choose Dashboard Data (.xlsx)"}
               </button>
               <div style={styles.helperText}>
                 Generates Table 1, Table 2, and a Pie Chart below for copy/paste.
