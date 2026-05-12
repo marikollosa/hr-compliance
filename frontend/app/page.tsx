@@ -236,7 +236,7 @@ const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
     id: "cw_risk_assessment",
     label: "CW Risk Assessment",
     description:
-      "Upload the CW Risk Assessment template + Excel file to generate the filled deck.",
+      "Upload the CW Risk Assessment template, Forms Responses (.xlsx), Dashboard Data (.xlsx), and the other CW inputs to generate the filled deck.",
     mapping: CW_RISK_ASSESSMENT_MAPPING,
   },
   {
