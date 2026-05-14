@@ -18,7 +18,9 @@ type CellSpec =
   | { type: "const"; value: string }
   | {
       type: "month_year";
-      ref: string;
+      /** When true, uses the current local date; otherwise reads a date from ref */
+      today?: boolean;
+      ref?: string;
       format?: "Mon YYYY" | "MMMM YYYY" | "MM/YYYY";
     }
   | { type: "exceptions_summary" }
@@ -153,7 +155,7 @@ const NEW_TOOLS_MAPPING: SlideMapping = {
 const CW_RISK_ASSESSMENT_MAPPING: SlideMapping = {
   1: {
     "[1]": { type: "cell", ref: "J2" },
-    "[2]": { type: "month_year", ref: "B2", format: "Mon YYYY" },
+    "[2]": { type: "month_year", today: true, format: "Mon YYYY" },
   },
   3: {
     "[1]": { type: "cell", ref: "K2" },
@@ -623,39 +625,11 @@ export default function Page() {
         return v === "" ? "N/A" : v;
       };
 
-      const formatMonthYear = (
-        ref: string,
+      const formatMonthYearValues = (
+        month: number,
+        year: number,
         format: "Mon YYYY" | "MMMM YYYY" | "MM/YYYY" = "Mon YYYY"
       ): string => {
-        const cell = getCellObj(ref);
-        if (!cell || cell.v == null) return "N/A";
-
-        let month: number | null = null;
-        let year: number | null = null;
-
-        if (cell.v instanceof Date && !isNaN(cell.v.getTime())) {
-          month = cell.v.getMonth() + 1;
-          year = cell.v.getFullYear();
-        }
-
-        if ((month == null || year == null) && typeof cell.v === "number") {
-          const parsed = XLSX.SSF.parse_date_code(cell.v);
-          if (parsed && parsed.m && parsed.y) {
-            month = parsed.m;
-            year = parsed.y;
-          }
-        }
-
-        if (month == null || year == null) {
-          const s = String(cell.w ?? cell.v).trim();
-          const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
-          if (m) {
-            month = Number(m[1]);
-            const yRaw = m[3];
-            year = yRaw.length === 2 ? 2000 + Number(yRaw) : Number(yRaw);
-          }
-        }
-
         if (!month || !year) return "N/A";
 
         const monShort = [
@@ -701,6 +675,43 @@ export default function Page() {
         const shortName = monShort[month - 1];
         if (!shortName) return "N/A";
         return `${shortName} ${year}`;
+      };
+
+      const formatMonthYearFromCell = (
+        ref: string,
+        format: "Mon YYYY" | "MMMM YYYY" | "MM/YYYY" = "Mon YYYY"
+      ): string => {
+        const cell = getCellObj(ref);
+        if (!cell || cell.v == null) return "N/A";
+
+        let month: number | null = null;
+        let year: number | null = null;
+
+        if (cell.v instanceof Date && !isNaN(cell.v.getTime())) {
+          month = cell.v.getMonth() + 1;
+          year = cell.v.getFullYear();
+        }
+
+        if ((month == null || year == null) && typeof cell.v === "number") {
+          const parsed = XLSX.SSF.parse_date_code(cell.v);
+          if (parsed && parsed.m && parsed.y) {
+            month = parsed.m;
+            year = parsed.y;
+          }
+        }
+
+        if (month == null || year == null) {
+          const s = String(cell.w ?? cell.v).trim();
+          const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+          if (m) {
+            month = Number(m[1]);
+            const yRaw = m[3];
+            year = yRaw.length === 2 ? 2000 + Number(yRaw) : Number(yRaw);
+          }
+        }
+
+        if (!month || !year) return "N/A";
+        return formatMonthYearValues(month, year, format);
       };
 
       // ---- Exceptions summary ----
@@ -778,7 +789,13 @@ export default function Page() {
         if (spec.type === "const") return spec.value;
 
         if (spec.type === "month_year") {
-          return formatMonthYear(spec.ref, spec.format ?? "Mon YYYY");
+          const fmt = spec.format ?? "Mon YYYY";
+          if (spec.today) {
+            const d = new Date();
+            return formatMonthYearValues(d.getMonth() + 1, d.getFullYear(), fmt);
+          }
+          if (!spec.ref) return "N/A";
+          return formatMonthYearFromCell(spec.ref, fmt);
         }
 
         if (spec.type === "exceptions_summary") {
