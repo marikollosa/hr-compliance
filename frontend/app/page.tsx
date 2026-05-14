@@ -187,6 +187,16 @@ const CW_RISK_ASSESSMENT_MAPPING: SlideMapping = {
     "[D2]": { type: "cell", ref: "L5" },
     "[D3]": { type: "cell", ref: "M5" },
     "[D4]": { type: "cell", ref: "N5" },
+
+    "[E1]": { type: "cell", ref: "K6" },
+    "[E2]": { type: "cell", ref: "L6" },
+    "[E3]": { type: "cell", ref: "M6" },
+    "[E4]": { type: "cell", ref: "N6" },
+
+    "[F1]": { type: "cell", ref: "K7" },
+    "[F2]": { type: "cell", ref: "L7" },
+    "[F3]": { type: "cell", ref: "M7" },
+    "[F4]": { type: "cell", ref: "N7" },
   },
   6: {
     "[A1]": { type: "cell", ref: "O2" },
@@ -216,6 +226,20 @@ const CW_RISK_ASSESSMENT_MAPPING: SlideMapping = {
     "[D4]": { type: "cell", ref: "R5" },
     "[D5]": { type: "cell", ref: "S5" },
     "[D6]": { type: "cell", ref: "T5" },
+
+    "[E1]": { type: "cell", ref: "O6" },
+    "[E2]": { type: "cell", ref: "P6" },
+    "[E3]": { type: "cell", ref: "Q6" },
+    "[E4]": { type: "cell", ref: "R6" },
+    "[E5]": { type: "cell", ref: "S6" },
+    "[E6]": { type: "cell", ref: "T6" },
+
+    "[F1]": { type: "cell", ref: "O7" },
+    "[F2]": { type: "cell", ref: "P7" },
+    "[F3]": { type: "cell", ref: "Q7" },
+    "[F4]": { type: "cell", ref: "R7" },
+    "[F5]": { type: "cell", ref: "S7" },
+    "[F6]": { type: "cell", ref: "T7" },
   },
 };
 
