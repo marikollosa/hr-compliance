@@ -275,15 +275,15 @@ const HR_PROGRAMS_MAPPING: SlideMapping = {
     "[1]": { type: "cell", ref: "BH2" },
     "[2]": { type: "cell", ref: "BA2" },
     "[3]": { type: "join", refs: ["BC2", "BD2"], joinWith: " "},
-  }
+  },
   9: {
     "[1]": { type: "join", refs: ["BF2", "BG2"], joinWith: " "},
   /*missing voluntary/involuntary info*/
-  }
+  },
  10: {
     "[1]": { type: "cell", ref: "DG2" },
     "[2]": { type: "join", refs: ["DE2", "DF2"], joinWith: " "},
-  }
+  },
 };
 
 
