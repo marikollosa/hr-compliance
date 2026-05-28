@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import * as XLSX from "xlsx";
 
-type SlideTypeId = "org_change" | "new_tools" | "cw_risk_assessment" | "data_audit_export";
+type SlideTypeId = "org_change" | "new_tools" | "cw_risk_assessment" | "data_audit_export" | "hr_programs";
 
 type SlideType = {
   id: SlideTypeId;
@@ -242,6 +242,50 @@ const CW_RISK_ASSESSMENT_MAPPING: SlideMapping = {
     "[F6]": { type: "cell", ref: "T7" },
   },
 };
+
+const HR_PROGRAMS_MAPPING: SlideMapping = {
+  1: {
+    "[1]": { type: "cell", ref: "F2" },
+  },
+  3: {
+    "[1]": { type: "cell", ref: "AM2" },
+  },
+  4: {
+    "[1]": { type: "cell", ref: "I2" },
+    "[2]": { type: "cell", ref: "G2" },
+    "[3]": { type: "cell", ref: "H2"},
+    "[4]": { type: "cell", ref: "J2"},
+  },
+  5: {
+    "[1]": { type: "cell", ref: "AN2" },
+    "[2]": { type: "cell", ref: "AP2" },
+  },
+  6: {
+     "[1]": { type: "cell", ref: "AQ2" },
+     "[2]": { type: "cell", ref: "AR2" },
+     "[3]": { type: "cell", ref: "AS2"},
+  },
+  7: {
+    "[1]": { type: "cell", ref: "AT2" },
+    "[2]": { type: "join", refs: ["AU2", "AV2"], joinWith: " "},
+    "[3]": { type: "cell", ref: "AX2"},
+    "[4]": { type: "cell", ref: "AY2"},
+  },
+  8: {
+    "[1]": { type: "cell", ref: "BH2" },
+    "[2]": { type: "cell", ref: "BA2" },
+    "[3]": { type: "join", refs: ["BC2", "BD2"], joinWith: " "},
+  }
+  9: {
+    "[1]": { type: "join", refs: ["BF2", "BG2"], joinWith: " "},
+  /*missing voluntary/involuntary info*/
+  }
+ 10: {
+    "[1]": { type: "cell", ref: "DG2" },
+    "[2]": { type: "join", refs: ["DE2", "DF2"], joinWith: " "},
+  }
+};
+
 
 const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
   {
