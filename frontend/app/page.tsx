@@ -4,13 +4,27 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import * as XLSX from "xlsx";
 
-type SlideTypeId = "org_change" | "new_tools" | "cw_risk_assessment" | "data_audit_export" | "hr_programs";
+type SlideTypeId =
+  | "org_change"
+  | "new_tools"
+  | "hr_programs"
+  | "cw_risk_assessment"
+  | "data_audit_export";
 
 type SlideType = {
   id: SlideTypeId;
   label: string;
   description?: string;
+  templateLabel?: string;
+  excelLabel?: string;
 };
+
+const PPTX_EXCEL_DECK_TYPES = new Set<SlideTypeId>([
+  "org_change",
+  "new_tools",
+  "hr_programs",
+  "cw_risk_assessment",
+]);
 
 type CellSpec =
   | { type: "cell"; ref: string }
@@ -303,6 +317,15 @@ const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
     mapping: NEW_TOOLS_MAPPING,
   },
   {
+    id: "hr_programs",
+    label: "HR Programs",
+    description:
+      "Upload the HR Programs PPTX template + Excel file to generate the filled deck.",
+    templateLabel: "HR Programs Template (.pptx)",
+    excelLabel: "Forms Responses (.xlsx)",
+    mapping: HR_PROGRAMS_MAPPING,
+  },
+  {
     id: "cw_risk_assessment",
     label: "CW Risk Assessment",
     description:
@@ -436,7 +459,8 @@ export default function Page() {
       return Boolean(dataAuditFile);
     }
 
-    if (!(slideType && templateFile && excelFile)) return false;
+    if (!PPTX_EXCEL_DECK_TYPES.has(slideType)) return false;
+    if (!(templateFile && excelFile)) return false;
 
     if (slideType === "cw_risk_assessment") {
       return Boolean(
@@ -502,8 +526,12 @@ export default function Page() {
         setError("Data Audit must be a .xlsx, .xlsm, or .xls file.");
         return;
       }
+    } else if (!PPTX_EXCEL_DECK_TYPES.has(slideType)) {
+      setError("Unsupported slide type.");
+      return;
     } else if (!templateFile || !excelFile) {
-      setError("Upload both a PPTX template and an Excel file.");
+      const deckLabel = selectedSlideDef?.label ?? "this template";
+      setError(`For ${deckLabel}, upload both a PPTX template and an Excel file.`);
       return;
     }
 
@@ -558,7 +586,7 @@ export default function Page() {
       }
     }
 
-    if (slideType !== "data_audit_export") {
+    if (PPTX_EXCEL_DECK_TYPES.has(slideType)) {
       if (!templateFile || !excelFile) {
         setError("Upload both a PPTX template and an Excel file.");
         return;
@@ -616,7 +644,7 @@ export default function Page() {
 
     const mapping = selectedSlideDef?.mapping;
 
-    if (slideType !== "data_audit_export") {
+    if (PPTX_EXCEL_DECK_TYPES.has(slideType)) {
       if (!mapping) {
         setError("No mapping found for this slide type.");
         return;
@@ -1001,9 +1029,7 @@ export default function Page() {
       });
 
       downloadBlob(outBlob, `generated_${slideType}.pptx`);
-      setSuccessMsg(
-        "Generated! Your PPT download should start automatically. The flagged Data Audit workbook should download too for CW Risk Assessment."
-      );
+      setSuccessMsg(getGenerateSuccessMessage(slideType));
     } catch (e: unknown) {
       const message =
         e instanceof Error
@@ -1044,10 +1070,12 @@ export default function Page() {
           )}
         </div>
 
-        {slideType !== "data_audit_export" && (
+        {PPTX_EXCEL_DECK_TYPES.has(slideType) && (
           <div key={resetKey}>
             <div style={styles.section}>
-            <label style={styles.label}>Template (.pptx)</label>
+            <label style={styles.label}>
+              {selectedSlideDef?.templateLabel ?? "Template (.pptx)"}
+            </label>
             <input
               ref={templateInputRef}
               type="file"
@@ -1075,12 +1103,16 @@ export default function Page() {
               <span style={{ fontSize: 20, marginRight: 8 }}>
                 {templateFile ? "✓" : "📎"}
               </span>
-              {templateFile ? templateFile.name : "Choose Template (.pptx)"}
+              {templateFile
+                ? templateFile.name
+                : `Choose ${selectedSlideDef?.templateLabel ?? "Template (.pptx)"}`}
             </button>
           </div>
 
           <div style={styles.section}>
-            <label style={styles.label}>Forms Responses (.xlsx)</label>
+            <label style={styles.label}>
+              {selectedSlideDef?.excelLabel ?? "Forms Responses (.xlsx)"}
+            </label>
             <input
               ref={excelInputRef}
               type="file"
@@ -1108,7 +1140,9 @@ export default function Page() {
               <span style={{ fontSize: 20, marginRight: 8 }}>
                 {excelFile ? "✓" : "📊"}
               </span>
-              {excelFile ? excelFile.name : "Choose Forms Responses (.xlsx)"}
+              {excelFile
+                ? excelFile.name
+                : `Choose ${selectedSlideDef?.excelLabel ?? "Forms Responses (.xlsx)"}`}
             </button>
           </div>
 
@@ -2072,6 +2106,16 @@ async function resolvePresentationSlidePaths(zip: JSZip): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+function getGenerateSuccessMessage(slideType: SlideTypeId): string {
+  if (slideType === "data_audit_export") {
+    return "Generated! Your flagged Data Audit workbook should download automatically.";
+  }
+  if (slideType === "cw_risk_assessment") {
+    return "Generated! Your PPT download should start automatically. The flagged Data Audit workbook should download too.";
+  }
+  return "Generated! Your PPT download should start automatically.";
 }
 
 function escapeXml(s: string) {
