@@ -28,7 +28,7 @@ const PPTX_EXCEL_DECK_TYPES = new Set<SlideTypeId>([
 
 type CellSpec =
   | { type: "cell"; ref: string }
-    { type: "cell"; value: string }
+  | { type: "cell"; value: string }
   | { type: "join"; refs: string[]; joinWith: string }
   | { type: "const"; value: string }
   | {
