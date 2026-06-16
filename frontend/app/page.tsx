@@ -314,11 +314,11 @@ const HR_PROGRAMS_MAPPING: SlideMapping = {
 
 const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
   {
-    id: "org_change",
-    label: "Organization Change",
+    id: "surveys",
+    label: "Survey",
     description:
-      "Upload the org change PPTX template + Excel file to generate the filled deck.",
-    mapping: ORG_CHANGE_MAPPING,
+      "Upload the survey PPTX template + Excel file to generate the filled deck.",
+    mapping: SURVEYS_MAPPING,
   },
   {
     id: "new_tools",
