@@ -892,34 +892,37 @@ export default function Page() {
       }
 
       const resolveSpec = (spec: CellSpec): string => {
-        if (spec.type === "cell") return getCell(spec.ref);
-        if (spec.type === "const") return spec.value;
+  if (spec.type === "cell") {
+    return "ref" in spec ? getCell(spec.ref) : spec.value;
+  }
 
-        if (spec.type === "month_year") {
-          const fmt = spec.format ?? "Mon YYYY";
-          if (spec.today) {
-            const d = new Date();
-            return formatMonthYearValues(d.getMonth() + 1, d.getFullYear(), fmt);
-          }
-          if (!spec.ref) return "N/A";
-          return formatMonthYearFromCell(spec.ref, fmt);
-        }
+  if (spec.type === "const") return spec.value;
 
-        if (spec.type === "exceptions_summary") {
-          return exceptionsSummary || "N/A";
-        }
+  if (spec.type === "month_year") {
+    const fmt = spec.format ?? "Mon YYYY";
+    if (spec.today) {
+      const d = new Date();
+      return formatMonthYearValues(d.getMonth() + 1, d.getFullYear(), fmt);
+    }
+    if (!spec.ref) return "N/A";
+    return formatMonthYearFromCell(spec.ref, fmt);
+  }
 
-        if (spec.type === "data_audit_summary") {
-          return dataAuditSummary || "N/A";
-        }
+  if (spec.type === "exceptions_summary") {
+    return exceptionsSummary || "N/A";
+  }
 
-        const parts = spec.refs
-          .map(getCell)
-          .map((v) => String(v ?? "").trim())
-          .filter((v) => v.length > 0 && v !== "N/A");
+  if (spec.type === "data_audit_summary") {
+    return dataAuditSummary || "N/A";
+  }
 
-        return parts.length ? parts.join(spec.joinWith) : "N/A";
-      };
+  const parts = spec.refs
+    .map(getCell)
+    .map((v) => String(v ?? "").trim())
+    .filter((v) => v.length > 0 && v !== "N/A");
+
+  return parts.length ? parts.join(spec.joinWith) : "N/A";
+};
 
       // ---- If CW: compute dashboard outputs for the page ----
       if (slideType === "cw_risk_assessment" && rawDataFile) {
