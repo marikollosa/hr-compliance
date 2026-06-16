@@ -5,7 +5,7 @@ import JSZip from "jszip";
 import * as XLSX from "xlsx";
 
 type SlideTypeId =
-  | "org_change"
+  | "surveys"
   | "new_tools"
   | "hr_programs"
   | "cw_risk_assessment"
@@ -20,7 +20,7 @@ type SlideType = {
 };
 
 const PPTX_EXCEL_DECK_TYPES = new Set<SlideTypeId>([
-  "org_change",
+  "surveys",
   "new_tools",
   "hr_programs",
   "cw_risk_assessment",
@@ -48,7 +48,7 @@ type SlideMapping = Record<number, Record<string, CellSpec>>;
  * -----------------------------
  */
 
-const ORG_CHANGE_MAPPING: SlideMapping = {
+const SURVEYS_MAPPING: SlideMapping = {
   1: {
     "NAME OF PROJECT": { type: "cell", ref: "F2" },
     "TYPE OF PROJECT": { type: "cell", ref: "K2" },
