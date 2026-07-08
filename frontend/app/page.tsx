@@ -297,7 +297,7 @@ const HR_PROGRAMS_MAPPING: SlideMapping = {
     "[4]": { type: "cell", ref: "AY2"},
   },
   8: {
-    "[1]": { type: "cell", ref: "BH2" },
+    "[1]": { type: "cell", ref: "AL2" },
     "[2]": { type: "cell", ref: "BA2" },
     "[3]": { type: "join", refs: ["BC2", "BD2"], joinWith: " "},
   },
