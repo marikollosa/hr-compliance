@@ -405,6 +405,7 @@ const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
     description:
         "Upload the Org Changes PPTX template + Excel file to generate the filled deck.",
     mapping: ORG_CHANGES_MAPPING
+  }
 ];
 
 type CwDashboard = {
