@@ -353,8 +353,8 @@ const HR_PROGRAMS_MAPPING: SlideMapping = {
     "[2]": { type: "const", value: "N/A" },
   },
  10: {
-    "[1]": { type: "cell", ref: "DG2" },
-    "[2]": { type: "join", refs: ["DE2", "DF2"], joinWith: " "},
+    "[1]": { type: "cell", ref: "EW2" },
+    "[2]": { type: "join", refs: ["EL2", "EM2"], joinWith: " "},
   },
 };
 
