@@ -21,7 +21,6 @@ type SlideType = {
 
 const PPTX_EXCEL_DECK_TYPES = new Set<SlideTypeId>([
   "surveys",
-  "new_tools",
   "hr_programs",
   "cw_risk_assessment",
   "org_changes"
