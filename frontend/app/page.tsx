@@ -96,7 +96,7 @@ const ORG_CHANGES_MAPPING: SlideMapping = {
     "[1]": { type: "cell", ref: "EN2" },
     "[2]": { type: "join", refs: ["EL2", "EM2"], joinWith: " " },
   },
-;
+};
 
 const SURVEYS_MAPPING: SlideMapping = {
   1: {
