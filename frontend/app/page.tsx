@@ -461,14 +461,14 @@ const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
   },
   {
     id: "surveys",
-    label: "Survey",
+    label: "Surveys",
     description:
       "Upload the survey PPTX template + Excel file to generate the filled deck.",
     mapping: SURVEYS_MAPPING,
   },
   {
     id: "trainings",
-    label: "Training",
+    label: "Trainings",
     description:
       "Upload the training PPTX template + Excel file to generate the filled deck.",
     mapping: TRAININGS_MAPPING,
