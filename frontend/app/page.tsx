@@ -317,7 +317,7 @@ const CW_RISK_ASSESSMENT_MAPPING: SlideMapping = {
 
 const HR_PROGRAMS_MAPPING: SlideMapping = {
   1: {
-    "[1]": { type: "cell", ref: "F2" },
+    "NAME OF PROJECT": { type: "cell", ref: "F2" },
   },
   3: {
     "[1]": { type: "cell", ref: "AM2" },
