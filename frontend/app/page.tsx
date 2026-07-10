@@ -5,12 +5,11 @@ import JSZip from "jszip";
 import * as XLSX from "xlsx";
 
 type SlideTypeId =
-  | "surveys"
-  | "new_tools"
-  | "hr_programs"
   | "cw_risk_assessment"
   | "data_audit_export"
-  | "org_changes";
+  | "hr_programs"
+  | "org_changes"
+  | "surveys";
 
 type SlideType = {
   id: SlideTypeId;
@@ -363,29 +362,6 @@ const HR_PROGRAMS_MAPPING: SlideMapping = {
 
 const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
   {
-    id: "surveys",
-    label: "Survey",
-    description:
-      "Upload the survey PPTX template + Excel file to generate the filled deck.",
-    mapping: SURVEYS_MAPPING,
-  },
-  {
-    id: "new_tools",
-    label: "New Tools / Surveys / Trainings",
-    description:
-      "Upload the New Tools/Surveys/Trainings template + Excel file to generate the filled deck.",
-    mapping: NEW_TOOLS_MAPPING,
-  },
-  {
-    id: "hr_programs",
-    label: "HR Programs",
-    description:
-      "Upload the HR Programs PPTX template + Excel file to generate the filled deck.",
-    templateLabel: "HR Programs Template (.pptx)",
-    excelLabel: "Forms Responses (.xlsx)",
-    mapping: HR_PROGRAMS_MAPPING,
-  },
-  {
     id: "cw_risk_assessment",
     label: "CW Risk Assessment",
     description:
@@ -400,12 +376,28 @@ const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
     mapping: {},
   },
   {
+    id: "hr_programs",
+    label: "HR Programs",
+    description:
+      "Upload the HR Programs PPTX template + Excel file to generate the filled deck.",
+    templateLabel: "HR Programs Template (.pptx)",
+    excelLabel: "Forms Responses (.xlsx)",
+    mapping: HR_PROGRAMS_MAPPING,
+  },
+  {
     id: "org_changes",
     label: "Organization Changes",
     description:
         "Upload the Org Changes PPTX template + Excel file to generate the filled deck.",
     mapping: ORG_CHANGES_MAPPING
   }
+  {
+    id: "surveys",
+    label: "Survey",
+    description:
+      "Upload the survey PPTX template + Excel file to generate the filled deck.",
+    mapping: SURVEYS_MAPPING,
+  },
 ];
 
 type CwDashboard = {
