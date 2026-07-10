@@ -9,7 +9,8 @@ type SlideTypeId =
   | "new_tools"
   | "hr_programs"
   | "cw_risk_assessment"
-  | "data_audit_export";
+  | "data_audit_export"
+  | "org_changes";
 
 type SlideType = {
   id: SlideTypeId;
@@ -24,6 +25,7 @@ const PPTX_EXCEL_DECK_TYPES = new Set<SlideTypeId>([
   "new_tools",
   "hr_programs",
   "cw_risk_assessment",
+  "org_changes"
 ]);
 
 type CellSpec =
@@ -48,6 +50,53 @@ type SlideMapping = Record<number, Record<string, CellSpec>>;
  * MAPPINGS
  * -----------------------------
  */
+const ORG_CHANGES_MAPPING: SlideMapping = {
+  1: {
+    "NAME OF PROJECT": { type: "cell", ref: "F2" },
+  },
+  3: {
+    "[1]": { type: "cell", ref: "M2" },
+  },
+  4: {
+    "[1]": { type: "cell", ref: "I2" },
+    "[2]": { type: "cell", ref: "G2" },
+    "[3]": { type: "cell", ref: "H2" },
+    "[4]": { type: "cell", ref: "J2" },
+  },
+  5: {
+    "[1]": { type: "cell", ref: "N2" },
+    "[2]": { type: "cell", ref: "P2" },
+  },
+  6: {
+    "[1]": { type: "cell", ref: "Q2" },
+    "[2]": { type: "cell", ref: "R2" },
+    "[3]": { type: "cell", ref: "S2" },
+  },
+  7: {
+    "[1]": { type: "cell", ref: "T2" },
+    "[2]": { type: "join", refs: ["U2", "V2"], joinWith: " " },
+    "[3]": { type: "cell", ref: "X2"},
+    "[4]": { type: "cell", ref: "Y2"},
+  },
+  8: {
+    "[1]": { type: "cell", ref: "L2" },
+    "[2]": { type: "cell", ref: "AA2" },
+    "[3]": { type: "join", refs: ["AC2", "AD2"], joinWith: " " },
+  },
+  9: {
+    "[1]": { type: "cell", ref: "AB2"},
+    "[2]": { type: "join", refs: ["AF2", "AG2"], joinWith: " " },
+  },
+  10: {
+    "[1]": { type: "cell", ref: "AH2" },
+    "[2]": { type: "cell", value: "N/A" },
+    "[3]": { type: "cell", ref: "AI2" },
+  },
+  11: {
+    "[1]": { type: "cell", ref: "EN2" },
+    "[2]": { type: "join", refs: ["EL2", "EM2"], joinWith: " " },
+  },
+;
 
 const SURVEYS_MAPPING: SlideMapping = {
   1: {
@@ -350,6 +399,12 @@ const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
       "Upload a Data Audit workbook and download the flagged records as an .xlsx file.",
     mapping: {},
   },
+  {
+    id: "org_changes",
+    label: "Organization Changes",
+    description:
+        "Upload the Org Changes PPTX template + Excel file to generate the filled deck.",
+    mapping: ORG_CHANGES_MAPPING
 ];
 
 type CwDashboard = {
