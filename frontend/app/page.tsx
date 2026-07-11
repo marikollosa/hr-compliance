@@ -11,6 +11,7 @@ type SlideTypeId =
   | "org_changes"
   | "surveys"
   | "tools"
+  | "t&c"
   | "trainings";
 
 type SlideType = {
@@ -27,6 +28,7 @@ const PPTX_EXCEL_DECK_TYPES = new Set<SlideTypeId>([
   "cw_risk_assessment",
   "org_changes",
   "tools",
+  "t&c",
   "trainings"
 ]);
 
@@ -52,6 +54,50 @@ type SlideMapping = Record<number, Record<string, CellSpec>>;
  * MAPPINGS
  * -----------------------------
  */
+const TC_MAPPING: SlideMapping = {
+  1: {
+    "NAME OF PROJECT": { type: "cell", ref: "F2" },
+  },
+  3: {
+    "[1]": { type: "cell", ref: "AM2" },
+  },
+  4: {
+    "[1]": { type: "cell", ref: "I2" },
+    "[2]": { type: "cell", ref: "G2" },
+    "[3]": { type: "cell", ref: "H2" },
+    "[4]": { type: "cell", ref: "J2" },
+  },
+  5: {
+    "[1]": { type: "cell", ref: "AN2" },
+    "[2]": { type: "cell", ref: "AP2" },
+  },
+  6: {
+    "[1]": { type: "cell", ref: "AQ2" },
+    "[2]": { type: "cell", ref: "AR2" },
+    "[3]": { type: "cell", ref: "AS2" },
+  },
+  7: {
+    "[1]": { type: "cell", ref: "AT2" },
+    "[2]": { type: "join", refs: ["AU2", "AV2"], joinWith: " " },
+    "[3]": { type: "cell", ref: "AX2"},
+    "[4]": { type: "cell", ref: "AY2"},
+  },
+  8: {
+    "[1]": { type: "cell", ref: "AL2" },
+    "[2]": { type: "cell", ref: "BA2" },
+    "[3]": { type: "join", refs: ["BC2", "BD2"], joinWith: " " },
+  },
+  9: {
+    "[1]": { type: "cell", ref: "BB2" },
+    "[2]": { type: "join", refs: ["BF2", "BG2"], joinWith: " " },
+    "[3]": { type: "cell", value: "N/A" },
+  },
+  10: {
+    "[1]": { type: "cell", ref: "EN2" },
+    "[2]": { type: "join", refs: ["EL2", "EM2"], joinWith: " " },
+  },
+};
+
 const TOOLS_MAPPING: SlideMapping = {
   1: {
     "NAME OF PROJECT": { type: "cell", ref: "F2" },
@@ -75,7 +121,7 @@ const TOOLS_MAPPING: SlideMapping = {
   },
   7: {
     "[1]": { type: "cell", ref: "BH2" },
-    "[2]": { type: "cell", ref: "BNI"},
+    "[2]": { type: "cell", ref: "BN2"},
     "[3]": { type: "join", refs: ["BO2", "BP2"], joinWith: " " },
   },
   8: {
@@ -536,6 +582,13 @@ const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
     description:
       "Upload the tools PPTX template + Excel file to generate the filled deck.",
     mapping: TOOLS_MAPPING,
+  },
+  {
+    id: "t&c",
+    label: "T&C",
+    description:
+      "Upload the T&C PPTX template + Excel file to generate the filled deck.",
+    mapping: TC_MAPPING,
   },
   {
     id: "trainings",
