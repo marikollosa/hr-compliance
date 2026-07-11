@@ -10,6 +10,7 @@ type SlideTypeId =
   | "hr_programs"
   | "org_changes"
   | "surveys"
+  | "tools"
   | "trainings";
 
 type SlideType = {
@@ -25,6 +26,7 @@ const PPTX_EXCEL_DECK_TYPES = new Set<SlideTypeId>([
   "hr_programs",
   "cw_risk_assessment",
   "org_changes",
+  "tools",
   "trainings"
 ]);
 
@@ -50,6 +52,68 @@ type SlideMapping = Record<number, Record<string, CellSpec>>;
  * MAPPINGS
  * -----------------------------
  */
+const TOOLS_MAPPING: SlideMapping = {
+  1: {
+    "NAME OF PROJECT": { type: "cell", ref: "F2" },
+  },
+  3: {
+    "[1]": { type: "cell", ref: "BI2" },
+  },
+  4: {
+    "[1]": { type: "cell", ref: "I2" },
+    "[2]": { type: "cell", ref: "G2" },
+    "[3]": { type: "cell", ref: "H2" },
+    "[4]": { type: "cell", ref: "J2" },
+  },
+  5: {
+    "[1]": { type: "cell", ref: "BJ2" },
+    "[2]": { type: "cell", ref: "BL2" },
+  },
+  6: {
+    "[1]": { type: "cell", value: "N/A" },
+    "[2]": { type: "cell", value: "N/A" },
+  },
+  7: {
+    "[1]": { type: "cell", ref: "BH2" },
+    "[2]": { type: "cell", ref: "BNI"},
+    "[3]": { type: "join", refs: ["BO2", "BP2"], joinWith: " " },
+  },
+  8: {
+    "[1]": { type: "cell", value: "N/A" },
+    "[2]": { type: "cell", value: "N/A" },
+  },
+  9: {
+    "[1]": { type: "cell", ref: "BW2" },
+    "[2]": { type: "cell", ref: "BZ2" },
+    "[3]": { type: "join", refs: ["BR2", "BS2"], joinWith: " " },
+  },
+  10: {
+    "[1]": { type: "cell", ref: "CS2" },
+    "[2]": { type: "cell", ref: "CQ2" },
+    "[3]": { type: "cell", ref: "CU2" },
+  },
+  11: {
+    "[1]": { type: "cell", ref: "CT2" },
+    "[2]": { type: "cell", ref: "CV2" },
+    "[3]": { type: "cell", ref: "CW2" },
+  },
+  12: {
+    "[1]": { type: "cell", ref: "CX2" },
+    "[2]": { type: "cell", ref: "CZ2" },
+    "[3]": { type: "cell", ref: "DA2" },
+    "[4]": { type: "cell", ref: "CR2" },
+  },
+  13: {
+    "[1]": { type: "cell", ref: "DB2" },
+    "[2]": { type: "cell", ref: "DC2" },
+    "[3]": { type: "cell", ref: "DD2" },
+    "[4]": { type: "cell", ref: "DF2" },
+  },
+  14: {
+    "[1]": { type: "cell", ref: "EN2" },
+    "[2]": { type: "join", refs: ["EL2", "EM2"], joinWith: " " },
+  },
+};
 
 const TRAININGS_MAPPING: SlideMapping = {
   1: {
@@ -465,6 +529,13 @@ const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
     description:
       "Upload the survey PPTX template + Excel file to generate the filled deck.",
     mapping: SURVEYS_MAPPING,
+  },
+  {
+    id: "tools",
+    label: "Tools & Process Introduction/Optimization",
+    description:
+      "Upload the tools PPTX template + Excel file to generate the filled deck.",
+    mapping: TOOLS_MAPPING,
   },
   {
     id: "trainings",
