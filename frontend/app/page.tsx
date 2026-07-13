@@ -56,7 +56,7 @@ type SlideMapping = Record<number, Record<string, CellSpec>>;
  * MAPPINGS
  * -----------------------------
  */
-const WFR: SlideMapping = {
+const WFR_SlideMapping = {
   1: {
     "NAME OF PROJECT": { type: "cell", ref: "F2" },
   },
