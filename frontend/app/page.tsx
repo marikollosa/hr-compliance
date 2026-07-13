@@ -332,7 +332,7 @@ const SURVEYS_MAPPING: SlideMapping = {
     "[2]": { type: "cell", ref: "DC2" },
     "[3]": { type: "cell", ref: "DF2" },
     "[4]": { type: "cell", ref: "DD2" },
-  }
+  },
   14: {
     "[1]": { type: "cell", ref: "EN2" },
     "[2]": { type: "join", refs: ["EL2", "EM2"], joinWith: " " }, 
