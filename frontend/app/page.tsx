@@ -280,7 +280,7 @@ const SURVEYS_MAPPING: SlideMapping = {
     "NAME OF PROJECT": { type: "cell", ref: "F2" },
   },
   3: {
-    "[1]": { type: "cell", ref: "CE2" },
+    "[1]": { type: "cell", ref: "CF2" },
   },
   4: {
     "[1]": { type: "cell", ref: "I2" },
@@ -289,48 +289,53 @@ const SURVEYS_MAPPING: SlideMapping = {
     "[4]": { type: "cell", ref: "J2" },
   },
   5: {
-    "[1]": { type: "cell", ref: "CF2" },
+    "[1]": { type: "cell", ref: "CG2" },
   },
   6: {
-    "[1]": { type: "cell", ref: "CA2" },
-    "[2]": { type: "cell", ref: "CB2" },
-    "[3]": { type: "cell", ref: "CH2" },
-    "[4]": { type: "join", refs: ["CI2", "CJ2"], joinWith: " "},
+    "[1]": { type: "cell", value: "N/A" },
+    "[2]": { type: "cell", value: "N/A" },
+    "[3]": { type: "cell", value: "N/A" },
   },
   7: {
-    "[1]": { type: "cell", ref: "CC2" },
-    "[2]": { type: "cell", value: "N/A"},
-    "[3]": { type: "join", refs: ["BR2", "BS2"], joinWith: " " },
+    "[1]": { type: "cell", ref: "CA2" },
+    "[2]": { type: "cell", ref: "CB2" },
+    "[3]": { type: "cell", ref: "CI2" }, 
+    "[3]": { type: "join", refs: ["CJ2", "CK2"], joinWith: " " },
   },
   8: {
-    "[1]": { type: "cell", value: "N/A" },
-    "[2]": { type: "cell", ref: "CM2" },
-    "[3]": { type: "cell", ref: "CN2"},
-    "[4]": { type: "cell", ref: "CQ2"},
+    "[1]": { type: "cell", ref: "CC2" },
+    "[2]": { type: "cell", ref: "CD2" },
+    "[3]": { type: "cell", value: "N/A" },
   },
   9: {
-    "[1]": { type: "cell", ref: "CP2"},
-    "[2]": { type: "cell", ref: "CS2"},
-    "[3]": { type: "cell", ref: "CR2"},
+    "[1]": { type: "cell", ref: "CR2" },
+    "[2]": { type: "cell", ref: "CN2" },
+    "[3]": { type: "cell", ref: "CO2" },
+    "[4]": { type: "cell", ref: "CS2" }, 
   },
   10: {
-    "[1]": { type: "cell", ref: "CT2" },
+    "[1]": { type: "cell", ref: "CQ2" },
     "[2]": { type: "cell", ref: "CU2" },
-    "[3]": { type: "cell", ref: "CV2" },
+    "[3]": { type: "cell", ref: "CT2" },
   },
   11: {
-    "[1]": { type: "cell", ref: "CX2" },
-    "[2]": { type: "cell", ref: "CY2" },
+    "[1]": { type: "cell", ref: "CV2" },
+    "[2]": { type: "cell", ref: "CW2" },
+    "[3]": { type: "cell", ref: "CX2" },
   },
   12: {
     "[1]": { type: "cell", ref: "CZ2" },
     "[2]": { type: "cell", ref: "DA2" },
-    "[3]": { type: "cell", ref: "DC2" },
-    "[4]": { type: "cell", value: "N/A"}, 
   },
-  13: {
-    "[1]": { type: "cell", ref: "EK2" },
-    "[2]": { type: "join", refs: ["EI2", "EJ2"], joinWith: " " }, 
+  13:{
+    "[1]": { type: "cell", ref: "DB2" },
+    "[2]": { type: "cell", ref: "DC2" },
+    "[3]": { type: "cell", ref: "DF2" },
+    "[4]": { type: "cell", ref: "DD2" },
+  }
+  14: {
+    "[1]": { type: "cell", ref: "EN2" },
+    "[2]": { type: "join", refs: ["EL2", "EM2"], joinWith: " " }, 
   },
 };
 
