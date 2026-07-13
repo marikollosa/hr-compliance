@@ -56,7 +56,7 @@ type SlideMapping = Record<number, Record<string, CellSpec>>;
  * MAPPINGS
  * -----------------------------
  */
-const WFR_Mapping = {
+const WFR_MAPPING = {
   1: {
     "NAME OF PROJECT": { type: "cell", ref: "F2" },
   },
@@ -640,7 +640,7 @@ const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
     label: "Organization Changes",
     description:
         "Upload the Org Changes PPTX template + Excel file to generate the filled deck.",
-    mapping: ORG_CHANGES_MAPPING
+    mapping: ORG_CHANGES_MAPPING,
   },
   {
     id: "surveys",
