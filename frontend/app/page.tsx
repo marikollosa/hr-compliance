@@ -12,7 +12,8 @@ type SlideTypeId =
   | "surveys"
   | "tools"
   | "t&c"
-  | "trainings";
+  | "trainings"
+  | "wfr";
 
 type SlideType = {
   id: SlideTypeId;
@@ -29,7 +30,8 @@ const PPTX_EXCEL_DECK_TYPES = new Set<SlideTypeId>([
   "org_changes",
   "tools",
   "t&c",
-  "trainings"
+  "trainings",
+  "wfr"
 ]);
 
 type CellSpec =
@@ -54,6 +56,72 @@ type SlideMapping = Record<number, Record<string, CellSpec>>;
  * MAPPINGS
  * -----------------------------
  */
+const WFR: SlideMapping = {
+  1: {
+    "NAME OF PROJECT": { type: "cell", ref: "F2" },
+  },
+  3: {
+    "[1]": { type: "cell", value: "N/A" },
+  },
+  4: {
+    "[1]": { type: "cell", ref: "I2" },
+    "[2]": { type: "cell", value: "N/A" },
+    "[3]": { type: "cell", ref: "G2" },
+    "[4]": { type: "cell", ref: "H2" },
+    "[5]": { type: "cell", ref: "J2" },
+    "[6]": { type: "cell", ref: "DH2" },
+  },
+  5: {
+    "[1]": { type: "cell", ref: "DI2" },
+    "[2]": { type: "cell", ref: "DJ2" },
+  },
+  6: {
+    "[1]": { type: "cell", ref: "DK2" },
+    "[2]": { type: "cell", ref: "DL2" },
+    "[3]": { type: "cell", ref: "DM2" },
+  },
+  7: {
+    "[1]": { type: "cell", ref: "DN2" },
+    "[2]": { type: "cell", ref: "DO2"},
+    "[3]": { type: "cell", ref: "DP2"},
+  },
+  8: {
+    "[1]": { type: "cell", ref: "DQ2" },
+    "[2]": { type: "cell", ref: "DR2" },
+  },
+  9: {
+    "[1]": { type: "cell", ref: "DS2" },
+    "[2]": { type: "cell", ref: "DT2" },
+    "[3]": { type: "cell", ref: "DU2" },
+    "[4]": { type: "cell", ref: "DV2" },
+  },
+  10: {
+    "[1]": { type: "cell", ref: "DW2" },
+    "[2]": { type: "cell", ref: "DX2" },
+    "[3]": { type: "cell", ref: "DY2" },
+    "[4]": { type: "cell", ref: "DZ2" },
+  },
+  11: {
+    "[1]": { type: "cell", ref: "EA2" },
+    "[2]": { type: "cell", ref: "EB2" }, 
+  },
+  12: {
+    "[1]": { type: "cell", ref: "EC2" },
+  },
+  13: {
+    "[1]": { type: "cell", ref: "ED2" },
+  },
+  14: {
+    "[1]": { type: "cell", ref: "EE2" },
+    "[2]": { type: "cell", ref: "EF2" }, 
+  },
+  15: {
+    "[1]": { type: "cell", ref: "EG2" },
+    "[2]": { type: "cell", ref: "EH2" },
+    "[3]": { type: "cell", ref: "EI2" },
+  },
+};
+
 const TC_MAPPING: SlideMapping = {
   1: {
     "NAME OF PROJECT": { type: "cell", ref: "F2" },
@@ -601,6 +669,13 @@ const SLIDE_DEFS: Array<SlideType & { mapping: SlideMapping }> = [
     description:
       "Upload the training PPTX template + Excel file to generate the filled deck.",
     mapping: TRAININGS_MAPPING,
+  },
+  {
+    id: "wfr",
+    label: "WFR",
+    description:
+      "Upload the WFR PPTX template + Excel file to generate the filled deck.",
+    mapping: WFR_MAPPING,
   },
 ];
 
